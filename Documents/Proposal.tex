@@ -31,9 +31,8 @@ These are the assumptions that were made to scope this SRS:
     \item[A1.] The Engine targets \textbf{additive aggregate analytics} (sum, average, count, weighted average) as the primary workload, consistent with the Feasibility PoC. Complex joins, non-linear functions (e.g. median, standard deviation without a secondary protocol) are deferred to a later phase.
     \item[A2.] The \textbf{Data Owner is a single trusted entity} per deployment (e.g. one hospital) that holds the private key; multi-owner federated aggregation is a future extension requiring threshold cryptography.
     \item[A3.] The cloud provider is treated as \textbf{honest-but-curious}: it will follow the protocol correctly but will attempt to learn as much as possible from ciphertext and metadata. Active/Byzantine cloud behavior is mitigated only by the verifiable computation log, not prevented outright.
-    \item[A4.] Dataset volumes are in the range demonstrated in the Computation Overhead study (approximately $2 \times 10^{6}$ records / 100 MB per batch); the Engine must degrade gracefully, not necessarily linearly, beyond this.
-    \item[A5.] Network transport (TLS 1.3) and at-rest storage encryption (AES-256) are assumed already compliant per the organization's existing infrastructure and are treated as satisfied preconditions.
-    \item[A6.] Key management uses a Hardware Security Module (HSM) or equivalent secure enclave on the Data Owner side; the Engine does not implement its own HSM but integrates with one via a standard interface (e.g. PKCS\#11).
+    \item[A4.] Network transport (TLS 1.3) and at-rest storage encryption (AES-256) are assumed already compliant per the organization's existing infrastructure and are treated as satisfied preconditions.
+    \item[A5.] Private key material is managed and stored securely on the Data Owner side, following the organization's existing key-management practices; the Engine does not implement its own key-custody mechanism but integrates with whatever secure key store the Data Owner already operates.
 \end{itemize}
 
 \section{System Architecture}
@@ -104,7 +103,7 @@ Figure~\ref{fig:priority} maps each functional requirement against implementatio
 \toprule
 \textbf{Category} & \textbf{Requirement} \\
 \midrule
-Confidentiality & No plaintext sensitive value may exist outside the Data Owner's trusted domain at any point in the pipeline, satisfying the Confidentiality requirement of Deliverable 1. \\
+Confidentiality & No plaintext sensitive value may exist outside the Data Owner's trusted domain at any point in the pipeline. \\
 Integrity \& Verifiability & Every cloud-side computation must be independently verifiable against the audit log; unauthorized modification of stored ciphertext must be detectable (e.g. via authenticated encryption / MAC on ciphertext blobs). \\
 Performance & Analytics latency must remain within an operator-configured SLA per key length; based on the empirical study (Section~5), a 2048-bit PHE deployment should target sub-5-minute aggregation latency for a 2M-record batch. \\
 Scalability & The compute engine must horizontally scale ciphertext summation across worker nodes, since Paillier summation is embarrassingly parallel. \\
@@ -171,7 +170,7 @@ Based on this empirical evidence, the Engine's \textbf{Homomorphic Computation E
 \centering
 \begin{tabularx}{\textwidth}{l X l}
 \toprule
-\textbf{Deliverable 1 Security Requirement} & \textbf{Addressed By} & \textbf{Req. ID} \\
+\textbf{Security Requirement} & \textbf{Addressed By} & \textbf{Req. ID} \\
 \midrule
 Confidentiality & Client-side encryption; no server-side decryption ever occurs & FR-1, FR-2, FR-3 \\
 Integrity & Tamper-evident audit log; authenticated ciphertext storage & FR-6 \\
@@ -179,7 +178,7 @@ Anonymity & Aggregation-only query surface prevents record-level linkage; direct
 Verifiability & Verifiable computation log independently checkable by the Data Owner & FR-6 \\
 \bottomrule
 \end{tabularx}
-\caption{Traceability from Deliverable 1 security requirements to Deliverable 2 functional requirements.}
+\caption{Traceability from security requirements to functional requirements.}
 \label{tab:traceability}
 \end{table}
 
@@ -191,6 +190,6 @@ Verifiability & Verifiable computation log independently checkable by the Data O
 \end{itemize}
 
 \section{Conclusion}
-This SRS translates the security requirements and architectural flaw analysis of Deliverable 1 into a concrete, empirically justified system design. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets, as demonstrated by the benchmarking data in Section~5.
+This SRS specifies a concrete, empirically justified system design for privacy-preserving analytics. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets, as demonstrated by the benchmarking data in Section~5.
 
 \end{document}
