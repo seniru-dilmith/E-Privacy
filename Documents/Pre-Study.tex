@@ -1,0 +1,67 @@
+\documentclass[12pt]{article}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{graphicx}
+
+\title{Security Requirements Study on Privacy Preserving Data Analytics Engine (E-Privacy)}
+\author{Dilmith D. L. S., Hansana O. G. V., Vidyananda K. H. K.}
+\date{August 14, 2026}
+
+\begin{document}
+\maketitle
+
+\section{System Overview}
+Conventional data analytics platforms require centralized aggregation of datasets to perform statistical operations. The core architectural limitation is that cryptographic protections must be temporarily stripped to perform mathematical computations on the data. This creates a highly vulnerable plaintext processing window.
+
+\section{Security Requirements \& Objectives}
+When handling sensitive organizational data (e.g. healthcare records, financial ledgers), the failure points should be taken care.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Requirement} & \textbf{Objective} & \textbf{Conventional Vulnerability} \\
+\midrule
+Confidentiality & Data must remain hidden from unauthorized parties at all times. & RAM decryption exposes plaintext to insider threats and memory scraping malware. \\
+Integrity & Unauthorized modification of data must be mathematically impossible or immediately evident. & Centralized plaintext processing allows undetected tampering of underlying records. \\
+Anonymity & Individuals cannot be identified from the dataset. & Susceptible to linkage attacks using auxiliary public datasets. \\
+Verifiability & Data owners must be able to prove computation correctness. & Relies entirely on blind trust in the cloud provider's internal security perimeter. \\
+\bottomrule
+\end{tabularx}
+\caption{Security Requirements vs. Conventional Limitations}
+\label{tab:security_reqs}
+\end{table}
+
+\section{Vulnerability Analysis}
+In a conventional architecture, data flows through three states: At Rest, In Transit, and In Use. Standard cryptographic protocols (AES, TLS) secure the first two states. The primary risk vector is the "Data In Use" state.
+
+\subsection{Architectural Flaw Diagram: The Data-in-Use Gap}
+Figure \ref{fig:arch_flow} illustrates the exact point of cryptographic failure in the conventional data processing pipeline, highlighting where plaintext exposure occurs.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{sources/architecture-flow.png}
+    \caption{Architectural Flaw: The Data-in-Use Gap in Conventional Pipelines}
+    \label{fig:arch_flow}
+\end{figure}
+
+\section{Failure of Conventional Anonymization}
+To circumvent the "Data In Use" vulnerability, conventional systems attempt to strip direct identifiers (Names, National Identity Card numbers) prior to cloud transmission. This control is engineering deficient due to the mathematical viability of Linkage Attacks.
+
+\subsection{Linkage Attack Vector Diagram}
+Figure \ref{fig:linkage_attack} demonstrates how pseudo-anonymized data is compromised by cross-referencing indirect identifiers (such as ZIP codes or dates of birth) with publicly available datasets.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{sources/linkage-attack-vector.png}
+    \caption{Linkage Attack Vector on Pseudo-Anonymized Datasets}
+    \label{fig:linkage_attack}
+\end{figure}
+
+\section{Conclusion}
+The study of conventional data analytics systems reveals a fundamental engineering contradiction, which is data utility requires plaintext processing, which directly violates end-to-end data confidentiality. Traditional mitigation strategies, such as perimeter defense and data masking, are inadequate against modern computational attacks. Fulfilling the security requirements necessitates transitioning to zero-knowledge or homomorphic cryptographic architectures that do not require server-side decryption.
+
+\end{document}
