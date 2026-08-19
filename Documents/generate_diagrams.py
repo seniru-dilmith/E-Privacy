@@ -3,9 +3,10 @@ import re
 import mermaidx
 from mermaidx.raster import render_png as _render_png
 
-# Ensure the output directory exists
-output_dir = "sources/srs"
-os.makedirs(output_dir, exist_ok=True)
+# Each diagram is saved under sources/<subfolder>/, one subfolder per deliverable
+sources_root = "sources"
+for _subfolder in ("srs", "crypto-design", "verifiability"):
+    os.makedirs(os.path.join(sources_root, _subfolder), exist_ok=True)
 
 
 THEME_VARIABLES = {
@@ -56,8 +57,8 @@ def _fix_gantt_gridlines(svg_text, top_margin=40):
     return svg_text.replace(f'y2="{old_y2}"', f'y2="{new_y2}"')
 
 
-def render_and_save(name, source, scale=3.0, extra_config=None, svg_fixup=None):
-    print(f"Rendering {name} ...")
+def render_and_save(subfolder, name, source, scale=3.0, extra_config=None, svg_fixup=None):
+    print(f"Rendering {subfolder}/{name} ...")
     config = dict(RENDER_CONFIG)
     if extra_config:
         config = {**config, **extra_config}
@@ -67,7 +68,7 @@ def render_and_save(name, source, scale=3.0, extra_config=None, svg_fixup=None):
         png_bytes = _render_png(svg_text, scale=scale, background="#ffffff")
     else:
         png_bytes = diagram.png(scale=scale, background="#ffffff")
-    out_path = os.path.join(output_dir, name)
+    out_path = os.path.join(sources_root, subfolder, name)
     with open(out_path, "wb") as f:
         f.write(png_bytes)
     print(f"  -> saved {out_path} ({len(png_bytes)/1024:.1f} KB)")
@@ -106,7 +107,7 @@ flowchart TB
     class OWNER trusted
     class CLOUD untrusted
 """
-render_and_save("system-architecture.png", architecture_mermaid)
+render_and_save("srs", "system-architecture.png", architecture_mermaid)
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +134,7 @@ sequenceDiagram
     Owner->>Owner: Decrypt locally with private key
     Owner->>Audit: Verify computation proof
 """
-render_and_save("data-flow-sequence.png", sequence_mermaid)
+render_and_save("srs", "data-flow-sequence.png", sequence_mermaid)
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ flowchart LR
     classDef layer fill:#cde2fb,stroke:#2a78d6,stroke-width:1.5px;
     class INGEST,CORE,SUPPORT,OUT layer
 """
-render_and_save("component-breakdown.png", component_mermaid)
+render_and_save("srs", "component-breakdown.png", component_mermaid)
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +192,75 @@ quadrantChart
     Admin Monitoring Dashboard: [0.4, 0.3]
     Multi-Key-Length Support: [0.6, 0.4]
 """
-render_and_save("requirements-priority.png", quadrant_mermaid)
+render_and_save("srs", "requirements-priority.png", quadrant_mermaid)
+
+
+# ---------------------------------------------------------------------------
+# 5. Cryptographic Techniques by Data State (Deliverable 3)
+# ---------------------------------------------------------------------------
+crypto_states_mermaid = """
+flowchart LR
+    subgraph REST["Data at Rest (Data Owner)"]
+        R1[("Raw Dataset")]
+        R2[("Locally Encrypted\\nDataset Store")]
+        R1 -- "AES-256-GCM" --> R2
+    end
+
+    subgraph TRANSIT1["Data in Transit (Upload)"]
+        T1["Local Encryption\\nClient"]
+        T2["API Gateway"]
+        T1 -- "TLS 1.3\\nECDHE + AES-256-GCM" --> T2
+    end
+
+    subgraph USE["Data in Use (Cloud)"]
+        U1[("Ciphertext\\nData Store")]
+        U2["Homomorphic Compute\\nEngine"]
+        U1 -- "Paillier PHE\\n(n = 2048-bit)" --> U2
+    end
+
+    subgraph TRANSIT2["Data in Transit (Result)"]
+        S1["Audit / Result\\nSigning"]
+        S2["Local Decryption\\nClient"]
+        S1 -- "TLS 1.3\\nECDSA-P256 signed" --> S2
+    end
+
+    R2 --> T1
+    T2 --> U1
+    U2 --> S1
+    S2 -.-> R1
+
+    classDef state fill:#cde2fb,stroke:#2a78d6,stroke-width:1.5px;
+    class REST,TRANSIT1,USE,TRANSIT2 state
+"""
+render_and_save("crypto-design", "crypto-per-data-state.png", crypto_states_mermaid)
+
+
+# ---------------------------------------------------------------------------
+# 6. Verifiability: Computation Bulletin Board (Deliverable 4)
+# ---------------------------------------------------------------------------
+verifiability_mermaid = """
+sequenceDiagram
+    autonumber
+    actor Contributor as Record Owner
+    participant Ingest as Ingestion Module
+    participant BB as Computation Bulletin Board
+    participant HCE as Homomorphic Compute Engine
+    actor Auditor as Independent Auditor
+
+    Contributor->>Ingest: Submit encrypted record
+    Ingest->>BB: Publish record hash as Merkle leaf
+    BB-->>Contributor: Inclusion proof (receipt)
+    Note over Contributor,BB: Individual Verifiability:<br/>contributor checks own leaf is included
+
+    Ingest->>HCE: Forward committed ciphertext set
+    HCE->>HCE: Homomorphic aggregation (ciphertext product)
+    HCE->>BB: Publish computation transcript,<br/>Merkle root & signed result hash
+
+    Auditor->>BB: Fetch Merkle root, transcript, signature
+    Auditor->>Auditor: Recompute ciphertext product<br/>& verify signature
+    Note over Auditor,BB: Universal Verifiability:<br/>anyone can confirm result matches<br/>the published, committed ciphertext set
+"""
+render_and_save("verifiability", "verifiability-bulletin-board.png", verifiability_mermaid)
 
 
 print("\nAll diagrams generated successfully.")

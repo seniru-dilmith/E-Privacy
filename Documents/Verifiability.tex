@@ -1,0 +1,58 @@
+\documentclass[12pt]{article}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+\title{Evaluating Verifiability in the Privacy Preserving Data Analytics Engine (E-Privacy)}
+\author{Dilmith D. L. S., Hansana O. G. V., Vidyananda K. H. K.}
+\date{September 25, 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+Verifiable e-voting systems (such as the Swiss Post e-voting system) are typically evaluated against two complementary properties: \textbf{Individual Verifiability}, where a voter can personally confirm that their own vote was recorded as cast, and \textbf{Universal Verifiability}, where any independent party can confirm that the published tally correctly reflects the full set of recorded votes, without needing to trust the voting server. These two properties generalize beyond elections to any system that outsources a sensitive computation to a party that must not be blindly trusted -- including online tendering, online complaint handling, online rating aggregation, and, as evaluated here, the Privacy Preserving Data Analytics Engine (PPDAE).
+
+\subsection{Assumption}
+This report applies the general individual/universal verifiability model common to bulletin-board-based verifiable systems. It does not reproduce material specific to any particular national e-voting deployment; instead it re-derives the two properties for the PPDAE's own data model (encrypted numeric records and homomorphic aggregates, rather than encrypted ballots and tallies).
+
+\subsection{Mapping the Two Properties to This Domain}
+\begin{itemize}[leftmargin=1.5em]
+    \item In e-voting, \emph{cast-as-intended} and \emph{recorded-as-cast} together give individual verifiability. In the PPDAE, the analogous property is \textbf{submitted-as-ingested}: a Record Owner can confirm that the exact ciphertext they submitted was received intact and committed for computation, unmodified.
+    \item In e-voting, \emph{tallied-as-recorded} gives universal verifiability. In the PPDAE, the analogous property is \textbf{aggregated-as-committed}: any auditor can confirm that the published aggregate result was computed correctly over exactly the set of ciphertexts that were committed, with no records silently dropped, substituted, or added.
+\end{itemize}
+
+\section{Design: The Computation Bulletin Board}
+Both properties are implemented through a single append-only, publicly readable structure -- the \textbf{Computation Bulletin Board} -- that sits alongside the existing Verifiable Computation \& Audit Module. Figure~\ref{fig:verifiability} shows the full protocol.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{sources/verifiability/verifiability-bulletin-board.png}
+    \caption{Individual and universal verifiability via a computation bulletin board.}
+    \label{fig:verifiability}
+\end{figure}
+
+\subsection{Individual Verifiability}
+When a Record Owner's encrypted record is ingested, its SHA-256 hash is inserted as a leaf into a \textbf{Merkle tree} maintained by the bulletin board. The board returns an \textbf{inclusion proof} (the sibling hashes on the path from the leaf to the root) as a receipt. At any later time, the Record Owner can independently recompute the path from their own record hash using the received sibling hashes and confirm it reproduces the publicly posted Merkle root -- without needing to trust the Ingestion Module's word that the record was received, and without revealing the record's plaintext value to anyone performing the check. This directly satisfies the ``submitted-as-ingested'' property.
+
+\subsection{Universal Verifiability}
+Once the Homomorphic Compute Engine completes an aggregation, it publishes three items to the bulletin board: (1) the Merkle root of the exact ciphertext set that was used as input, (2) a computation transcript identifying which committed leaves were included, and (3) the resulting ciphertext hash, all under an \textbf{ECDSA-P256 digital signature} from the compute engine's key. Because Paillier ciphertext aggregation is simply modular multiplication of the input ciphertexts ($E(m_1)\cdot E(m_2) \bmod n^2$), which is a deterministic, publicly computable operation on public ciphertext, \emph{any} party -- not only the Data Owner -- can independently recompute the ciphertext product from the committed set and confirm it matches the signed, published result hash. This gives universal verifiability of correct aggregation \emph{without} requiring the private key or learning any plaintext value, since the check operates entirely on ciphertext.
+
+\section{What Verifiability Does and Does Not Guarantee}
+\begin{itemize}[leftmargin=1.5em]
+    \item Verifiability detects, but does not by itself prevent, a dishonest compute engine from dropping or substituting a committed record: the Merkle-root mismatch or transcript inconsistency becomes publicly evident \emph{after the fact}, enabling detection and dispute rather than silent tampering. This matches the honest-but-curious threat model already assumed for the cloud provider in the systems requirements specification; a fully Byzantine cloud operator could still refuse to publish at all, which is an availability failure rather than a silent-correctness failure and would itself be publicly observable.
+    \item Verifiability is orthogonal to confidentiality: the Merkle tree and computation transcript operate entirely on ciphertext hashes, so publishing them for universal verification does not leak any plaintext value or violate the Engine's core confidentiality requirement.
+    \item Individual verifiability protects each Record Owner only for the records they personally submitted; it does not, on its own, confirm that no unauthorized records were injected by another party. That guarantee comes from the Access Control \& Policy Engine (FR-4) authenticating every ingestion request before a leaf is ever added to the bulletin board.
+\end{itemize}
+
+\section{Conclusion}
+By publishing Merkle inclusion proofs to individual Record Owners and a signed, publicly recomputable ciphertext-product transcript for the aggregate result, the PPDAE achieves both individual and universal verifiability using the same cryptographic building blocks (hash chaining and digital signatures) already specified for the Verifiable Computation Log, without requiring any additional decryption or plaintext exposure at any point in the verification process.
+
+\end{document}

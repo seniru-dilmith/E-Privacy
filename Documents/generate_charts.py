@@ -5,7 +5,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
-output_dir = "sources/srs"
+output_dir = "sources/crypto-design"
 os.makedirs(output_dir, exist_ok=True)
 
 # --- Palette (validated categorical order, light mode) ---

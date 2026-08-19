@@ -11,7 +11,7 @@
 \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 
 \title{Systems Requirements Specification: Privacy Preserving Data Analytics Engine (E-Privacy)}
-\author{Dilmith D. L. S., Hansana O. G. V., Vidyananda H. K. H.}
+\author{Dilmith D. L. S., Hansana O. G. V., Vidyananda K. H. K.}
 \date{August 21, 2026}
 
 \begin{document}
@@ -20,10 +20,10 @@
 \section{Introduction}
 
 \subsection{Purpose}
-Requirements specification for a system that computes on encrypted data without ever decrypting it server-side.
+This document is a concrete requirements specification for a system that computes on encrypted data without ever decrypting it server-side.
 
 \subsection{Scope}
-The Engine allows a Data Owner (e.g. a hospital, bank or research institute) to outsource statistical aggregation of sensitive records to an untrusted cloud environment while cryptographically guaranteeing that the cloud never observes plaintext values. The scope covers functional and non-functional requirements, system architecture, data flow and the empirical justification for the selected cryptographic scheme.
+The Engine allows a Data Owner (e.g. a hospital, bank or research institute) to outsource statistical aggregation of sensitive records to an untrusted cloud environment while cryptographically guaranteeing that the cloud never observes plaintext values. The scope covers functional and non-functional requirements, system architecture, and data flow; selection and empirical justification of the underlying cryptographic techniques is addressed separately in the cryptographic design specification.
 
 \subsection{Assumptions}
 These are the assumptions that were made to scope this SRS:
@@ -105,9 +105,9 @@ Figure~\ref{fig:priority} maps each functional requirement against implementatio
 \midrule
 Confidentiality & No plaintext sensitive value may exist outside the Data Owner's trusted domain at any point in the pipeline. \\
 Integrity \& Verifiability & Every cloud-side computation must be independently verifiable against the audit log; unauthorized modification of stored ciphertext must be detectable (e.g. via authenticated encryption / MAC on ciphertext blobs). \\
-Performance & Analytics latency must remain within an operator-configured SLA per key length; based on the empirical study (Section~5), a 2048-bit PHE deployment should target sub-5-minute aggregation latency for a 2M-record batch. \\
+Performance & Analytics latency must remain within an operator-configured SLA per key length; a 2048-bit PHE deployment should target sub-5-minute aggregation latency for a 2M-record batch (see the cryptographic design specification for the supporting benchmark). \\
 Scalability & The compute engine must horizontally scale ciphertext summation across worker nodes, since Paillier summation is embarrassingly parallel. \\
-Storage Efficiency & Ciphertext storage expansion must be bounded and predictable; based on Section~5, PHE at 2048-bit keys is budgeted at $\leq$ 1.1 GB per 100 MB of plaintext (an $\sim$11x expansion), versus FHE's $\sim$650x. \\
+Storage Efficiency & Ciphertext storage expansion must be bounded and predictable; PHE at 2048-bit keys is budgeted at $\leq$ 1.1 GB per 100 MB of plaintext (an $\sim$11x expansion), versus FHE's $\sim$650x (see the cryptographic design specification). \\
 Availability & The API Gateway and compute engine must meet a 99.5\% uptime target, independent of the Data Owner's local infrastructure availability. \\
 Auditability & All access-control decisions and computations must be logged with sufficient metadata for post-hoc compliance review (e.g. HIPAA, GDPR-style audits), without logging plaintext. \\
 Usability & The client-side encryption/decryption library must expose a single-call API (encrypt/aggregate/decrypt) so integration effort for a new Data Owner is under one engineer-week. \\
@@ -116,53 +116,6 @@ Usability & The client-side encryption/decryption library must expose a single-c
 \caption{Non-Functional Requirements}
 \label{tab:nonfunctional_reqs}
 \end{table}
-
-\section{Empirical Justification of Cryptographic Scheme Selection}
-
-To ground the Engine's design in evidence rather than assumption, the Feasibility and Computation Overhead studies benchmarked four candidate approaches -- \textbf{Plaintext} (baseline), \textbf{RSA} (decrypt-compute-re-encrypt), \textbf{PHE / Paillier} (additive homomorphism), and \textbf{FHE / TenSEAL CKKS} (arbitrary homomorphism) -- across key lengths of 1024, 2048, and 3072 bits, extrapolated from a 1{,}000-record sample to the full 2{,}000{,}000-record / 94.76~MB financial dataset (a 2000x scale factor).
-
-\subsection{Storage Footprint}
-Figure~\ref{fig:storage} shows that FHE ciphertext expansion is catastrophic for tabular aggregation workloads (up to 617~GB for a 94.76~MB source file, a $\sim$6{,}600x expansion), while PHE remains within a manageable $\sim$11--16x expansion across all tested key lengths.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{sources/srs/chart-storage-footprint.png}
-    \caption{Ciphertext storage footprint by cryptographic scheme and key length (log scale).}
-    \label{fig:storage}
-\end{figure}
-
-\subsection{Encryption Latency}
-Figure~\ref{fig:enc_latency} shows the full-dataset encryption latency. PHE encryption is the slowest to \emph{ingest} at higher key lengths (112 hours at 3072-bit), which drives NFR guidance to default to 2048-bit keys and to parallelize/pipeline ingestion rather than block on full-dataset encryption before any query can run.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{sources/srs/chart-encryption-latency.png}
-    \caption{Full-dataset encryption latency by cryptographic scheme and key length (log scale).}
-    \label{fig:enc_latency}
-\end{figure}
-
-\subsection{Analytics (Query) Latency}
-Figure~\ref{fig:analytics_latency} shows the latency of the actual sum/average computation on already-encrypted data -- the metric that dominates user-perceived query responsiveness. PHE outperforms both RSA's decrypt-compute-re-encrypt pipeline (which additionally violates the Data-in-Use confidentiality requirement) and FHE at every key length tested.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{sources/srs/chart-analytics-latency.png}
-    \caption{Ciphertext sum/average computation latency by cryptographic scheme and key length (log scale).}
-    \label{fig:analytics_latency}
-\end{figure}
-
-\subsection{Trade-off Synthesis}
-Figure~\ref{fig:tradeoff} plots storage footprint against analytics latency for the three encrypted schemes. PHE occupies the most favorable region of the trade-off space -- low storage expansion \emph{and} low query latency -- for additive aggregation workloads, whereas FHE's generality is paid for with orders-of-magnitude worse storage and no corresponding analytics-latency benefit for this workload class.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{sources/srs/chart-tradeoff-scatter.png}
-    \caption{Storage footprint vs. analytics latency trade-off space across cryptosystems and key lengths.}
-    \label{fig:tradeoff}
-\end{figure}
-
-\subsection{Decision}
-Based on this empirical evidence, the Engine's \textbf{Homomorphic Computation Engine (FR-3) is specified around Partially Homomorphic Encryption (Paillier)} at a default 2048-bit key length, matching the industry-standard security margin while keeping storage expansion and analytics latency within operationally acceptable bounds. FHE (CKKS) is retained as a \emph{pluggable future option} (per A1) for workloads that require multiplicative operations between two ciphertexts, which Paillier does not support.
 
 \section{Requirements Traceability}
 
@@ -185,11 +138,11 @@ Verifiability & Verifiable computation log independently checkable by the Data O
 \section{Constraints and Future Work}
 \begin{itemize}[leftmargin=1.5em]
     \item Paillier's lack of native ciphertext-ciphertext multiplication limits the Engine to linear aggregate statistics in this phase; variance/standard-deviation queries require either a two-round protocol or a partial FHE fallback.
-    \item Encryption latency at higher key lengths (Figure~\ref{fig:enc_latency}) motivates a streaming/incremental ingestion pipeline rather than a batch-encrypt-then-query model, to be detailed in the subsequent design deliverable.
+    \item Encryption latency at higher key lengths motivates a streaming/incremental ingestion pipeline rather than a batch-encrypt-then-query model, to be detailed in the subsequent design deliverable.
     \item Multi-owner federated queries and differential-privacy noise injection for output perturbation are explicitly deferred (A2, A1) and should be scoped in a follow-on SRS revision.
 \end{itemize}
 
 \section{Conclusion}
-This SRS specifies a concrete, empirically justified system design for privacy-preserving analytics. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets, as demonstrated by the benchmarking data in Section~5.
+This SRS specifies a concrete system design for privacy-preserving analytics. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets. The empirical benchmarking that justifies the specific cryptosystem and key-length selection is presented in the accompanying cryptographic design specification.
 
 \end{document}
