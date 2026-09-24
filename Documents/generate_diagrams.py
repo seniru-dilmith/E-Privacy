@@ -241,24 +241,29 @@ render_and_save("crypto-design", "crypto-per-data-state.png", crypto_states_merm
 verifiability_mermaid = """
 sequenceDiagram
     autonumber
-    actor Contributor as Record Owner
-    participant Ingest as Ingestion Module
-    participant BB as Computation Bulletin Board
+    actor Owner as Data Owner (e.g. Bank)
+    participant GW as API Gateway
+    participant BB as Audit Log / Bulletin Board
     participant HCE as Homomorphic Compute Engine
-    actor Auditor as Independent Auditor
+    actor Auditor as External Auditor (e.g. Regulator)
 
-    Contributor->>Ingest: Submit encrypted record
-    Ingest->>BB: Publish record hash as Merkle leaf
-    BB-->>Contributor: Inclusion proof (receipt)
-    Note over Contributor,BB: Individual Verifiability:<br/>contributor checks own leaf is included
+    Owner->>Owner: Encrypt records locally (Paillier)<br/>& spot-check sample
+    Owner->>GW: Upload ciphertext batch
+    GW->>BB: Append ciphertext hashes as Merkle leaves
+    BB-->>Owner: Signed receipt (Merkle root + inclusion proofs)
+    Note over Owner,BB: Individual Verifiability:<br/>records stored as uploaded
 
-    Ingest->>HCE: Forward committed ciphertext set
-    HCE->>HCE: Homomorphic aggregation (ciphertext product)
-    HCE->>BB: Publish computation transcript,<br/>Merkle root & signed result hash
+    Owner->>GW: Query SUM / AVG(Transaction_Amount)
+    GW->>HCE: Forward committed ciphertext set
+    HCE->>HCE: C = product of c_i mod n^2
+    HCE->>BB: Publish input root, N, C (ECDSA-signed)
+    HCE-->>Owner: Encrypted result C (via Gateway)
+    Owner->>Owner: Check root, N and hash(C),<br/>decrypt C to (m, r)
+    Owner->>BB: Publish result m and randomness r
 
-    Auditor->>BB: Fetch Merkle root, transcript, signature
-    Auditor->>Auditor: Recompute ciphertext product<br/>& verify signature
-    Note over Auditor,BB: Universal Verifiability:<br/>anyone can confirm result matches<br/>the published, committed ciphertext set
+    Auditor->>BB: Fetch log, ciphertexts, root, C, m, r
+    Auditor->>Auditor: Verify signatures & root,<br/>recompute C, check g^m r^n = C
+    Note over Auditor,BB: Universal Verifiability:<br/>computed and decrypted correctly
 """
 render_and_save("verifiability", "verifiability-bulletin-board.png", verifiability_mermaid)
 

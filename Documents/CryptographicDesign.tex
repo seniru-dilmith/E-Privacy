@@ -23,8 +23,8 @@ This document specifies the cryptographic technique used by the Privacy Preservi
 
 \subsection{Assumptions}
 \begin{itemize}[leftmargin=1.5em]
-    \item[B1.] Parties use standard, well-reviewed cryptographic libraries (e.g. python-phe) rather than custom primitive implementations.
-    \item[B2.] The Data Owner's Paillier private key is generated using a cryptographically secure random number generator (CSPRNG).
+    \item[B1.] Parties use standard, well-reviewed cryptographic libraries rather than custom primitive implementations.
+    \item[B2.] The Data Owner's Paillier private key is generated using a cryptographically secure random number generator.
     \item[B3.] The 2048-bit Paillier key length is the default operating point, per the empirical trade-off analysis in Section~\ref{sec:empirical}: it gives sub-5-minute aggregation latency for a 2M-record batch, versus 3072-bit's disproportionate latency cost.
 \end{itemize}
 
@@ -49,8 +49,46 @@ RSA-based decrypt-compute-re-encrypt requires the server to hold plaintext mid-c
 Four candidate approaches were benchmarked on a 2,000,000-record dataset: \textbf{Plaintext} (baseline), \textbf{RSA} (decrypt-compute-re-encrypt), \textbf{PHE/Paillier}, and \textbf{FHE/CKKS}, across 1024/2048/3072-bit key lengths.
 
 \begin{itemize}[leftmargin=1.5em]
-    \item \textbf{Storage:} FHE ciphertext expansion is impractical for tabular aggregation ($\sim$6{,}600x on the test dataset), while PHE stays within an $\sim$11--16x expansion at all tested key lengths.
+    \item \textbf{Storage:} FHE ciphertext expansion is impractical for tabular aggregation, while PHE stays within an $\sim$6--16x expansion over plaintext at all tested key lengths.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Key length} & \textbf{Plaintext} & \textbf{PHE (Paillier)} & \textbf{FHE (CKKS)} \\
+\midrule
+1024-bit & 0.093 GB & 0.54 GB (584\%) & 150.73 GB (162{,}861\%) \\
+2048-bit & 0.093 GB & 1.01 GB (1{,}091\%) & 617.25 GB (667{,}000\%) \\
+3072-bit & 0.093 GB & 1.50 GB (1{,}621\%) & 617.23 GB (666{,}780\%) \\
+\bottomrule
+\end{tabular}
+\caption{Ciphertext storage footprint on the 94.76 MB / 2M-record dataset, by scheme and key length. Percentages in brackets show ciphertext size relative to plaintext. At 2048-bit, FHE is $\sim$611x larger than PHE.}
+\label{tab:storage}
+\end{table}
+
+\begin{itemize}[leftmargin=1.5em]
     \item \textbf{Query latency:} for the actual sum/average computation on ciphertext, PHE outperforms both RSA (which also violates confidentiality-in-processing) and FHE at every key length tested.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Key length} & \textbf{RSA (decrypt--compute--re-encrypt)} & \textbf{PHE (Paillier)} & \textbf{FHE (CKKS)} \\
+\midrule
+1024-bit & 2.82 min & 1.47 min & 0.77 min \\
+2048-bit & 17.77 min & 4.99 min & 1.46 min \\
+3072-bit & 112.31 min & 10.53 min & 1.45 min \\
+\bottomrule
+\end{tabular}
+\caption{Analytics (sum/average) query latency on the 2M-record dataset, by scheme and key length.}
+\label{tab:query_latency}
+\end{table}
+
+\begin{itemize}[leftmargin=1.5em]
     \item \textbf{Decision:} PHE (Paillier) at a 2048-bit modulus gives the best combination of processing confidentiality, storage cost, and query latency for additive aggregation. FHE is retained as a pluggable future option only if a workload requires ciphertext-ciphertext multiplication.
 \end{itemize}
 

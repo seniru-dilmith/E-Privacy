@@ -6,9 +6,12 @@
 \usepackage{float}
 \usepackage{graphicx}
 \usepackage{enumitem}
-\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{array}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 \title{Evaluating Verifiability in the Privacy Preserving Data Analytics Engine (E-Privacy)}
 \author{Dilmith D. L. S., Hansana O. G. V., Vidyananda H. K. H.}
@@ -18,41 +21,76 @@
 \maketitle
 
 \section{Introduction}
-Verifiable e-voting systems (such as the Swiss Post e-voting system) are typically evaluated against two complementary properties: \textbf{Individual Verifiability}, where a voter can personally confirm that their own vote was recorded as cast, and \textbf{Universal Verifiability}, where any independent party can confirm that the published tally correctly reflects the full set of recorded votes, without needing to trust the voting server. These two properties generalize beyond elections to any system that outsources a sensitive computation to a party that must not be blindly trusted -- including online tendering, online complaint handling, online rating aggregation, and, as evaluated here, the Privacy Preserving Data Analytics Engine (PPDAE).
+In E-Privacy, a Data Owner (e.g.\ a bank) encrypts its records locally with Paillier (2048-bit modulus), uploads only ciphertext to the cloud, and asks the cloud's Homomorphic Compute Engine to return aggregates such as the sum and average of \texttt{Transaction\_Amount} over its 2,000,000 transaction records. Confidentiality is guaranteed because the cloud never holds the private key. \emph{Correctness}, however, is not: an untrusted cloud could silently drop records, include stale ones, or return a wrong ciphertext, and the Data Owner would decrypt a plausible-looking but wrong number.
 
-\subsection{Assumption}
-This report applies the general individual/universal verifiability model common to bulletin-board-based verifiable systems. It does not reproduce material specific to any particular national e-voting deployment; instead it re-derives the two properties for the PPDAE's own data model (encrypted numeric records and homomorphic aggregates, rather than encrypted ballots and tallies).
-
-\subsection{Mapping the Two Properties to This Domain}
+The Swiss e-voting system faces the same problem with ballots and tallies, and answers it with two properties, which this report applies to E-Privacy:
 \begin{itemize}[leftmargin=1.5em]
-    \item In e-voting, \emph{cast-as-intended} and \emph{recorded-as-cast} together give individual verifiability. In the PPDAE, the analogous property is \textbf{submitted-as-ingested}: a Record Owner can confirm that the exact ciphertext they submitted was received intact and committed for computation, unmodified.
-    \item In e-voting, \emph{tallied-as-recorded} gives universal verifiability. In the PPDAE, the analogous property is \textbf{aggregated-as-committed}: any auditor can confirm that the published aggregate result was computed correctly over exactly the set of ciphertexts that were committed, with no records silently dropped, substituted, or added.
+    \item \textbf{Individual verifiability} -- the Data Owner can check that \emph{its own} uploaded records were stored as uploaded and were actually used in the query it asked for.
+    \item \textbf{Universal verifiability} -- \emph{any} third party (e.g.\ a financial regulator or external auditor) can check that the published result was correctly computed from the committed ciphertexts and correctly decrypted, without the private key and without seeing any individual record.
 \end{itemize}
 
-\section{Design: The Computation Bulletin Board}
-Both properties are implemented through a single append-only, publicly readable structure -- the \textbf{Computation Bulletin Board} -- that sits alongside the existing Verifiable Computation \& Audit Module. Figure~\ref{fig:verifiability} shows the full protocol.
+\subsection{Assumptions}
+\begin{itemize}[leftmargin=1.5em]
+    \item[V1.] As in the SRS (A2, A3), there is one trusted Data Owner per deployment holding the Paillier private key, and the cloud is honest-but-curious; verifiability is the mechanism that turns any deviation by the cloud into a \emph{detectable} event.
+    \item[V2.] The Verifiable Computation \& Audit Module (FR-6) is extended into an append-only, hash-chained \textbf{bulletin board}, readable by the Data Owner and by auditors authorised through the Access Control \& Policy Engine (FR-4).
+    \item[V3.] Each board entry is hashed with SHA-256 and signed by the cloud with ECDSA-P256, so the cloud cannot later deny or rewrite what it published.
+    \item[V4.] Only aggregates over at least a policy-defined minimum number of records are published (FR-4), so revealing an aggregate result does not reveal an individual value.
+\end{itemize}
+
+\subsection{Mapping from E-Voting to E-Privacy}
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{L{3.3cm} L{4.6cm} X}
+\toprule
+\textbf{Property} & \textbf{E-voting (Swiss model)} & \textbf{E-Privacy} \\
+\midrule
+Cast as intended & Voter checks return codes for their choices & Data Owner's client encrypts locally (FR-2) and spot-checks its own ciphertexts before upload \\
+Recorded as cast & Vote is stored unchanged on the server & Each uploaded ciphertext is committed as a Merkle leaf; the Data Owner gets a signed inclusion receipt \\
+Counted as recorded & Tally uses exactly the recorded ballots & Aggregate $C = \prod c_i \bmod n^2$ is computed over exactly the committed leaves \\
+Correct decryption & Proof that the tally was decrypted correctly & Data Owner publishes result $m$ with Paillier randomness $r$; anyone checks $g^m r^n \equiv C \pmod{n^2}$ \\
+\bottomrule
+\end{tabularx}
+\caption{Verifiability properties of e-voting and their E-Privacy counterparts.}
+\end{table}
+
+\section{Protocol}
+Figure~\ref{fig:verifiability} shows how both properties fit into the existing E-Privacy query flow (upload $\rightarrow$ API Gateway $\rightarrow$ Homomorphic Compute Engine $\rightarrow$ Audit Log $\rightarrow$ local decryption).
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{sources/verifiability/verifiability-bulletin-board.png}
-    \caption{Individual and universal verifiability via a computation bulletin board.}
+    \includegraphics[width=0.95\textwidth]{sources/verifiability/verifiability-bulletin-board.png}
+    \caption{Individual and universal verifiability in the E-Privacy query flow.}
     \label{fig:verifiability}
 \end{figure}
 
-\subsection{Individual Verifiability}
-When a Record Owner's encrypted record is ingested, its SHA-256 hash is inserted as a leaf into a \textbf{Merkle tree} maintained by the bulletin board. The board returns an \textbf{inclusion proof} (the sibling hashes on the path from the leaf to the root) as a receipt. At any later time, the Record Owner can independently recompute the path from their own record hash using the received sibling hashes and confirm it reproduces the publicly posted Merkle root -- without needing to trust the Ingestion Module's word that the record was received, and without revealing the record's plaintext value to anyone performing the check. This directly satisfies the ``submitted-as-ingested'' property.
+\subsection{Individual Verifiability (Data Owner)}
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Encrypted as intended.} Encryption happens only in the Data Owner's Local Encryption Client (FR-2), never in the cloud. Before upload, the client decrypts a random sample of the ciphertexts it just produced and compares them with the source rows, catching a faulty or tampered client library.
+    \item \textbf{Stored as uploaded.} When the API Gateway accepts an upload batch, the SHA-256 hash of every ciphertext $c_i$ becomes a leaf of a Merkle tree on the bulletin board. The Gateway returns a signed receipt holding the new Merkle root and the inclusion proof for each leaf. The Data Owner keeps its own list of hashes and can check at any time that each record is still in the tree, unmodified. For the 2M-record dataset, each proof is only about 21 hashes ($\lceil \log_2 2{,}000{,}000 \rceil$).
+    \item \textbf{Used in my query.} For each query, e.g.\ \texttt{SUM(Transaction\_Amount)}, the Compute Engine publishes the Merkle root and the leaf count $N$ of the exact input set it aggregated. The Data Owner checks that the root equals the one in its latest receipt and that $N = 2{,}000{,}000$. A dropped, extra or substituted record changes the root, so the result is rejected before it is trusted.
+    \item \textbf{Result as computed.} The encrypted result returned by the Gateway must hash to the value the Compute Engine signed on the board; otherwise the result was swapped in transit or by the Gateway.
+\end{enumerate}
 
-\subsection{Universal Verifiability}
-Once the Homomorphic Compute Engine completes an aggregation, it publishes three items to the bulletin board: (1) the Merkle root of the exact ciphertext set that was used as input, (2) a computation transcript identifying which committed leaves were included, and (3) the resulting ciphertext hash, all under an \textbf{ECDSA-P256 digital signature} from the compute engine's key. Because Paillier ciphertext aggregation is simply modular multiplication of the input ciphertexts ($E(m_1)\cdot E(m_2) \bmod n^2$), which is a deterministic, publicly computable operation on public ciphertext, \emph{any} party -- not only the Data Owner -- can independently recompute the ciphertext product from the committed set and confirm it matches the signed, published result hash. This gives universal verifiability of correct aggregation \emph{without} requiring the private key or learning any plaintext value, since the check operates entirely on ciphertext.
+\subsection{Universal Verifiability (Any Auditor)}
+An auditor who holds only public information -- the Paillier public key $(n, g)$ and the bulletin board -- performs four checks:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Log integrity:} recompute the SHA-256 hash chain and verify every ECDSA-P256 signature, so no entry was edited or removed after publication.
+    \item \textbf{Input set:} rebuild the Merkle root from the published ciphertexts and confirm it matches the root the Compute Engine signed for the query.
+    \item \textbf{Computation:} recompute $C' = \prod_{i=1}^{N} c_i \bmod n^2$ and confirm $C' = C$, the signed encrypted sum. Paillier addition is deterministic on public ciphertexts, so this needs no key. The average is then $m / N$ with $N$ public, so it needs no separate proof.
+    \item \textbf{Decryption:} Paillier decryption also recovers the randomness $r$ of a ciphertext. The Data Owner publishes the sum $m$ together with $r$, and the auditor checks $g^{m} \cdot r^{n} \equiv C \pmod{n^2}$. A false $m$ cannot pass this check, so even the Data Owner cannot misreport the result to a regulator.
+\end{enumerate}
+Checks 1--3 cost about the same as the original aggregation. Per the Computation Overhead benchmark, that is roughly 5 minutes of modular multiplication for 2M records at 2048 bits, over about 1.01 GB of ciphertext, so independent auditing is practical.
 
 \section{What Verifiability Does and Does Not Guarantee}
 \begin{itemize}[leftmargin=1.5em]
-    \item Verifiability detects, but does not by itself prevent, a dishonest compute engine from dropping or substituting a committed record: the Merkle-root mismatch or transcript inconsistency becomes publicly evident \emph{after the fact}, enabling detection and dispute rather than silent tampering. This matches the honest-but-curious threat model already assumed for the cloud provider in the systems requirements specification; a fully Byzantine cloud operator could still refuse to publish at all, which is an availability failure rather than a silent-correctness failure and would itself be publicly observable.
-    \item Verifiability is orthogonal to confidentiality: the Merkle tree and computation transcript operate entirely on ciphertext hashes, so publishing them for universal verification does not leak any plaintext value or violate the Engine's core confidentiality requirement.
-    \item Individual verifiability protects each Record Owner only for the records they personally submitted; it does not, on its own, confirm that no unauthorized records were injected by another party. That guarantee comes from the Access Control \& Policy Engine (FR-4) authenticating every ingestion request before a leaf is ever added to the bulletin board.
+    \item \textbf{Detection, not prevention.} A dishonest cloud can still drop records or return a wrong ciphertext, but it cannot do so \emph{silently}: the Merkle root, the ciphertext product or a signature will not match. A cloud that refuses to publish at all causes a visible availability failure, not a hidden correctness failure.
+    \item \textbf{No loss of confidentiality.} The board contains only ciphertexts, hashes, signatures and the final aggregate. Individual ciphertexts reveal nothing without the private key, and the published $r$ belongs to the aggregate ciphertext only, so it reveals nothing about any single record.
+    \item \textbf{Scope.} Checks 3 and 4 cover the additive queries E-Privacy supports (sum, count, average). Queries outside that scope (A1 in the SRS) would need extra proofs, such as zero-knowledge proofs, which are out of scope for this design.
 \end{itemize}
 
 \section{Conclusion}
-By publishing Merkle inclusion proofs to individual Record Owners and a signed, publicly recomputable ciphertext-product transcript for the aggregate result, the PPDAE achieves both individual and universal verifiability using the same cryptographic building blocks (hash chaining and digital signatures) already specified for the Verifiable Computation Log, without requiring any additional decryption or plaintext exposure at any point in the verification process.
+E-Privacy achieves individual verifiability through local encryption with spot-checks, signed Merkle inclusion receipts, and a per-query input-set root that the Data Owner compares against its own records. It achieves universal verifiability because Paillier aggregation can be recomputed by anyone from public ciphertexts, and Paillier decryption can be proven by revealing the aggregate's randomness. Together these let a Data Owner and an external auditor both confirm that a result such as the total of 2,000,000 transaction amounts is complete and correct, without trusting the cloud and without anyone other than the Data Owner seeing a single plaintext record.
 
 \end{document}

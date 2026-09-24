@@ -85,16 +85,6 @@ FR-8 & Admin Monitoring Dashboard & Operators must be able to observe query thro
 \label{tab:functional_reqs}
 \end{table}
 
-\subsection{Requirement Prioritization}
-Figure~\ref{fig:priority} maps each functional requirement against implementation effort and business impact, informing the phased delivery plan: homomorphic aggregation and local key management are the two ``must-ship-first'' capabilities, since every other requirement depends on them.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\textwidth]{sources/srs/requirements-priority.png}
-    \caption{Functional requirement prioritization by impact vs. implementation effort.}
-    \label{fig:priority}
-\end{figure}
-
 \section{Non-Functional Requirements}
 
 \begin{table}[H]
@@ -143,6 +133,6 @@ Verifiability & Verifiable computation log independently checkable by the Data O
 \end{itemize}
 
 \section{Conclusion}
-This SRS specifies a concrete system design for privacy-preserving analytics. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets. The empirical benchmarking that justifies the specific cryptosystem and key-length selection is presented in the accompanying cryptographic design specification.
+This SRS specifies a concrete system design for privacy-preserving analytics. By confining plaintext exclusively to the Data Owner's trusted domain and performing all cloud-side analytics via Partially Homomorphic Encryption, the Engine closes the Data-in-Use vulnerability window while remaining within practical storage and latency budgets.
 
 \end{document}
