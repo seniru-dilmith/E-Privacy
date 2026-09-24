@@ -29,31 +29,13 @@ The Swiss e-voting system faces the same problem with ballots and tallies, and a
     \item \textbf{Universal verifiability} -- \emph{any} third party (e.g.\ a financial regulator or external auditor) can check that the published result was correctly computed from the committed ciphertexts and correctly decrypted, without the private key and without seeing any individual record.
 \end{itemize}
 
-\subsection{Assumptions}
+\subsection{Design Basis}
 \begin{itemize}[leftmargin=1.5em]
     \item[V1.] As in the SRS (A2, A3), there is one trusted Data Owner per deployment holding the Paillier private key, and the cloud is honest-but-curious; verifiability is the mechanism that turns any deviation by the cloud into a \emph{detectable} event.
     \item[V2.] The Verifiable Computation \& Audit Module (FR-6) is extended into an append-only, hash-chained \textbf{bulletin board}, readable by the Data Owner and by auditors authorised through the Access Control \& Policy Engine (FR-4).
     \item[V3.] Each board entry is hashed with SHA-256 and signed by the cloud with ECDSA-P256, so the cloud cannot later deny or rewrite what it published.
     \item[V4.] Only aggregates over at least a policy-defined minimum number of records are published (FR-4), so revealing an aggregate result does not reveal an individual value.
 \end{itemize}
-
-\subsection{Mapping from E-Voting to E-Privacy}
-\begin{table}[H]
-\centering
-\small
-\renewcommand{\arraystretch}{1.25}
-\begin{tabularx}{\textwidth}{L{3.3cm} L{4.6cm} X}
-\toprule
-\textbf{Property} & \textbf{E-voting (Swiss model)} & \textbf{E-Privacy} \\
-\midrule
-Cast as intended & Voter checks return codes for their choices & Data Owner's client encrypts locally (FR-2) and spot-checks its own ciphertexts before upload \\
-Recorded as cast & Vote is stored unchanged on the server & Each uploaded ciphertext is committed as a Merkle leaf; the Data Owner gets a signed inclusion receipt \\
-Counted as recorded & Tally uses exactly the recorded ballots & Aggregate $C = \prod c_i \bmod n^2$ is computed over exactly the committed leaves \\
-Correct decryption & Proof that the tally was decrypted correctly & Data Owner publishes result $m$ with Paillier randomness $r$; anyone checks $g^m r^n \equiv C \pmod{n^2}$ \\
-\bottomrule
-\end{tabularx}
-\caption{Verifiability properties of e-voting and their E-Privacy counterparts.}
-\end{table}
 
 \section{Protocol}
 Figure~\ref{fig:verifiability} shows how both properties fit into the existing E-Privacy query flow (upload $\rightarrow$ API Gateway $\rightarrow$ Homomorphic Compute Engine $\rightarrow$ Audit Log $\rightarrow$ local decryption).
@@ -68,7 +50,7 @@ Figure~\ref{fig:verifiability} shows how both properties fit into the existing E
 \subsection{Individual Verifiability (Data Owner)}
 \begin{enumerate}[leftmargin=1.5em]
     \item \textbf{Encrypted as intended.} Encryption happens only in the Data Owner's Local Encryption Client (FR-2), never in the cloud. Before upload, the client decrypts a random sample of the ciphertexts it just produced and compares them with the source rows, catching a faulty or tampered client library.
-    \item \textbf{Stored as uploaded.} When the API Gateway accepts an upload batch, the SHA-256 hash of every ciphertext $c_i$ becomes a leaf of a Merkle tree on the bulletin board. The Gateway returns a signed receipt holding the new Merkle root and the inclusion proof for each leaf. The Data Owner keeps its own list of hashes and can check at any time that each record is still in the tree, unmodified. For the 2M-record dataset, each proof is only about 21 hashes ($\lceil \log_2 2{,}000{,}000 \rceil$).
+    \item \textbf{Stored as uploaded.} When the API Gateway accepts an upload batch, the SHA-256 hash of every ciphertext $c_i$ becomes a leaf of a Merkle tree on the bulletin board. The Gateway returns a signed receipt holding the new Merkle root and the inclusion proof for each leaf. The Data Owner keeps its own list of hashes and can check at any time that each record is still in the tree, unmodified.
     \item \textbf{Used in my query.} For each query, e.g.\ \texttt{SUM(Transaction\_Amount)}, the Compute Engine publishes the Merkle root and the leaf count $N$ of the exact input set it aggregated. The Data Owner checks that the root equals the one in its latest receipt and that $N = 2{,}000{,}000$. A dropped, extra or substituted record changes the root, so the result is rejected before it is trusted.
     \item \textbf{Result as computed.} The encrypted result returned by the Gateway must hash to the value the Compute Engine signed on the board; otherwise the result was swapped in transit or by the Gateway.
 \end{enumerate}
@@ -81,13 +63,11 @@ An auditor who holds only public information -- the Paillier public key $(n, g)$
     \item \textbf{Computation:} recompute $C' = \prod_{i=1}^{N} c_i \bmod n^2$ and confirm $C' = C$, the signed encrypted sum. Paillier addition is deterministic on public ciphertexts, so this needs no key. The average is then $m / N$ with $N$ public, so it needs no separate proof.
     \item \textbf{Decryption:} Paillier decryption also recovers the randomness $r$ of a ciphertext. The Data Owner publishes the sum $m$ together with $r$, and the auditor checks $g^{m} \cdot r^{n} \equiv C \pmod{n^2}$. A false $m$ cannot pass this check, so even the Data Owner cannot misreport the result to a regulator.
 \end{enumerate}
-Checks 1--3 cost about the same as the original aggregation. Per the Computation Overhead benchmark, that is roughly 5 minutes of modular multiplication for 2M records at 2048 bits, over about 1.01 GB of ciphertext, so independent auditing is practical.
 
 \section{What Verifiability Does and Does Not Guarantee}
 \begin{itemize}[leftmargin=1.5em]
-    \item \textbf{Detection, not prevention.} A dishonest cloud can still drop records or return a wrong ciphertext, but it cannot do so \emph{silently}: the Merkle root, the ciphertext product or a signature will not match. A cloud that refuses to publish at all causes a visible availability failure, not a hidden correctness failure.
+    \item \textbf{Detection, not prevention.} A dishonest cloud can still drop records or return a wrong ciphertext, but it cannot do so \emph{silently}. the Merkle root, the ciphertext product or a signature will not match. A cloud that refuses to publish at all causes a visible availability failure, not a hidden correctness failure.
     \item \textbf{No loss of confidentiality.} The board contains only ciphertexts, hashes, signatures and the final aggregate. Individual ciphertexts reveal nothing without the private key, and the published $r$ belongs to the aggregate ciphertext only, so it reveals nothing about any single record.
-    \item \textbf{Scope.} Checks 3 and 4 cover the additive queries E-Privacy supports (sum, count, average). Queries outside that scope (A1 in the SRS) would need extra proofs, such as zero-knowledge proofs, which are out of scope for this design.
 \end{itemize}
 
 \section{Conclusion}
