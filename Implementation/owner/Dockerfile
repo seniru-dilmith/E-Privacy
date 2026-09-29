@@ -9,5 +9,7 @@ COPY web/package.json web/
 RUN npm ci -w owner -w shared --omit=dev --ignore-scripts
 COPY shared shared
 COPY owner owner
+COPY data/hospital_admissions.csv /data/hospital_admissions.csv
+RUN mkdir -p /keys && chown node:node /keys
 USER node
 CMD ["node", "owner/src/index.js"]

@@ -23,6 +23,7 @@ CREATE TABLE campaigns (
   g            TEXT         NOT NULL,          -- generator, hex
   metrics      JSON         NOT NULL,          -- [{name, scale, squared}]
   record_count INT          NOT NULL DEFAULT 0,
+  plaintext_bytes BIGINT    NOT NULL DEFAULT 0,          -- size of the source rows, reported by the owner
   merkle_root  CHAR(64)     NULL,
   status       ENUM('uploading', 'committed') NOT NULL DEFAULT 'uploading',
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -5,6 +5,6 @@
   "workspaces": ["shared", "cloud", "owner", "web"],
   "scripts": {
     "dataset": "node data/generate.js",
-    "test": "node --test shared/"
+    "test": "node --test shared/*.test.js"
   }
 }

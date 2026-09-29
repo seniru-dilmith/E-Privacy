@@ -2,7 +2,9 @@ name: e-privacy
 
 services:
   mysql:
-    image: mysql:8.4
+    build:
+      context: .
+      dockerfile: db/Dockerfile
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -11,7 +13,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
       interval: 5s
@@ -47,7 +48,8 @@ services:
         condition: service_healthy
     networks: [cloud_net, edge]
 
-  # Trusted domain: holds the private keys and the plaintext dataset.
+  # Trusted domain: holds the private keys and the plaintext dataset
+  # (the CSV is copied into this image only).
   # It has no database credentials and reaches the cloud only through its API.
   owner:
     build:
@@ -65,7 +67,6 @@ services:
       DATASET: /data/hospital_admissions.csv
       KEY_DIR: /keys
     volumes:
-      - ./data:/data:ro
       - owner_keys:/keys
     depends_on: [cloud]
     networks: [edge]

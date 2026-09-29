@@ -9,5 +9,6 @@ COPY web/package.json web/
 RUN npm ci -w cloud -w shared --omit=dev --ignore-scripts
 COPY shared shared
 COPY cloud cloud
+RUN mkdir -p /var/lib/cloud && chown node:node /var/lib/cloud
 USER node
 CMD ["node", "cloud/src/index.js"]
