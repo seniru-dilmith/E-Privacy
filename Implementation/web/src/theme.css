@@ -218,3 +218,4 @@ pre.payload {
   max-height: 340px;
   border-left: 2px solid var(--accent);
 }
+.section > .aside .link { justify-self: start; }

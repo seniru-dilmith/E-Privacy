@@ -26,6 +26,7 @@ export function fmt(v, digits = 1) {
 
 export function compact(v) {
   const a = Math.abs(v);
+  if (Number.isInteger(v) && a < 1e3) return String(v);
   if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M';
   if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'k';
   return fmt(v, a < 10 ? 1 : 0);
@@ -123,17 +124,17 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
 }
 
 // Horizontal bars for rates or counts, value labelled at the bar end.
-export function bars({ categories, values, format = compact, color = SERIES[0], n, label = 'value' }) {
+export function bars({ categories, values, format = compact, color = SERIES[0], n, label = 'value', ref }) {
   return {
     animationDuration: 500,
-    grid: { left: 8, right: 56, top: 8, bottom: 28, containLabel: true },
+    grid: { left: 8, right: 56, top: ref ? 24 : 8, bottom: 28, containLabel: true },
     tooltip: {
       ...tooltipBase,
       trigger: 'item',
       formatter: (p) => `<div style="margin-bottom:4px;color:${MUTED}">${esc(categories[p.dataIndex])}</div>`
         + tipRow(format(p.value), label) + (n ? tipRow(n[p.dataIndex].toLocaleString(), 'admissions') : ''),
     },
-    xAxis: valueAxis({ axisLabel: { ...axisLabel, formatter: (v) => format(v) } }),
+    xAxis: valueAxis({ axisLabel: { ...axisLabel, formatter: (v) => format(v) }, ...(ref && { max: (v) => Math.ceil(Math.max(v.max, ref.value) * 1.08) }) }),
     yAxis: categoryAxis(categories, { inverse: true }),
     series: [{
       type: 'bar',
@@ -142,6 +143,15 @@ export function bars({ categories, values, format = compact, color = SERIES[0], 
       itemStyle: { color, borderRadius: [0, 4, 4, 0] },
       emphasis: { itemStyle: { color: SEQUENTIAL[4] } },
       label: { show: true, position: 'right', color: INK, fontSize: 11.5, formatter: (p) => format(p.value) },
+      ...(ref && {
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          data: [{ xAxis: ref.value }],
+          lineStyle: { color: INK, type: 'dashed', width: 1.5, opacity: 0.7 },
+          label: { formatter: () => ref.label, color: INK2, fontSize: 11, position: 'end' },
+        },
+      }),
     }],
   };
 }
