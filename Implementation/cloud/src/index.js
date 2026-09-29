@@ -12,7 +12,6 @@ const anyRole = allow('owner', 'auditor', 'admin');
 
 app.post('/auth/login', login);
 app.post('/auth/logout', anyRole, logout);
-app.get('/me', anyRole, (req, res) => res.json(req.user));
 
 // ---- bulletin board ----
 
@@ -30,18 +29,19 @@ app.get('/board/:seq', anyRole, async (req, res) => {
 
 // ---- campaigns ----
 
-const campaignRow = (id) => one('SELECT * FROM campaigns WHERE id = ?', [id]);
+// Loads :id into req.campaign (after auth) and optionally insists on a status.
+const STATUS_ERROR = { uploading: 'Campaign is already committed', committed: 'Campaign is not committed yet' };
+const campaign = (status) => async (req, res, next) => {
+  req.campaign = await one('SELECT * FROM campaigns WHERE id = ?', [req.params.id]);
+  if (!req.campaign) return res.status(404).json({ error: 'No such campaign' });
+  if (status && req.campaign.status !== status) return res.status(409).json({ error: STATUS_ERROR[status] });
+  next();
+};
 
 app.get('/campaigns', anyRole, async (req, res) => {
   res.json(await all(`SELECT id, name, key_bits, record_count, plaintext_bytes, merkle_root, status, created_at, metrics,
     (SELECT COALESCE(SUM(LENGTH(cipher)), 0) FROM records r WHERE r.campaign_id = c.id) AS cipher_bytes
     FROM campaigns c ORDER BY id DESC`));
-});
-
-app.get('/campaigns/:id', anyRole, async (req, res) => {
-  const c = await campaignRow(req.params.id);
-  if (!c) return res.status(404).json({ error: 'No such campaign' });
-  res.json(c);
 });
 
 const HEX = /^[0-9a-f]+$/;
@@ -62,11 +62,8 @@ app.post('/campaigns', allow('owner'), async (req, res) => {
   res.status(201).json({ id: r.insertId, entry });
 });
 
-app.post('/campaigns/:id/records', allow('owner'), async (req, res) => {
-  const c = await campaignRow(req.params.id);
-  if (!c) return res.status(404).json({ error: 'No such campaign' });
-  if (c.status !== 'uploading') return res.status(409).json({ error: 'Campaign is already committed' });
-
+app.post('/campaigns/:id/records', allow('owner'), campaign('uploading'), async (req, res) => {
+  const c = req.campaign;
   const expected = cipherColumns(c.metrics).length * cipherWidth(c.key_bits);
   const records = req.body?.records;
   if (!Array.isArray(records) || !records.length || records.length > 5000) return res.status(400).json({ error: 'Send 1-5000 records per batch' });
@@ -81,15 +78,12 @@ app.post('/campaigns/:id/records', allow('owner'), async (req, res) => {
   }
   await pool.query(`INSERT INTO records (campaign_id, seq, ${DIMENSIONS.join(', ')}, cipher, leaf_hash) VALUES ?`, [rows]);
   res.locals.records = rows.length;
-  res.json({ stored: rows.length, leaves: rows.map((r) => r[r.length - 1]) });
+  res.json({ leaves: rows.map((r) => r[r.length - 1]) });
 });
 
 // Seals the input set: the signed Merkle root is the owner's receipt.
-app.post('/campaigns/:id/commit', allow('owner'), async (req, res) => {
-  const c = await campaignRow(req.params.id);
-  if (!c) return res.status(404).json({ error: 'No such campaign' });
-  if (c.status !== 'uploading') return res.status(409).json({ error: 'Campaign is already committed' });
-
+app.post('/campaigns/:id/commit', allow('owner'), campaign('uploading'), async (req, res) => {
+  const c = req.campaign;
   const leaves = (await all('SELECT leaf_hash FROM records WHERE campaign_id = ? ORDER BY seq', [c.id])).map((r) => r.leaf_hash);
   const root = merkleRoot(leaves);
   await pool.query("UPDATE campaigns SET status = 'committed', merkle_root = ?, record_count = ? WHERE id = ?", [root, leaves.length, c.id]);
@@ -116,16 +110,13 @@ app.get('/campaigns/:id/records/:seq/proof', allow('owner', 'auditor'), async (r
   const index = rows.findIndex((r) => r.seq === Number(req.params.seq));
   if (index < 0) return res.status(404).json({ error: 'No such record' });
   const leaves = rows.map((r) => r.leaf_hash);
-  res.json({ seq: rows[index].seq, index, leaf: leaves[index], proof: merkleProof(leaves, index), root: merkleRoot(leaves) });
+  res.json({ seq: rows[index].seq, leaf: leaves[index], proof: merkleProof(leaves, index), root: merkleRoot(leaves) });
 });
 
 // ---- analytics ----
 
-app.post('/campaigns/:id/query', allow('owner'), async (req, res) => {
-  const c = await campaignRow(req.params.id);
-  if (!c) return res.status(404).json({ error: 'No such campaign' });
-  if (c.status !== 'committed') return res.status(409).json({ error: 'Campaign is not committed yet' });
-
+app.post('/campaigns/:id/query', allow('owner'), campaign('committed'), async (req, res) => {
+  const c = req.campaign;
   const started = Date.now();
   const result = await runQuery(c, { groupBy: req.body?.groupBy ?? [], metrics: req.body?.metrics ?? [] });
   const entry = await board.append('query_result', c.id, { ...result, compute_ms: Date.now() - started });
@@ -154,13 +145,13 @@ app.get('/metrics', allow('admin'), async (req, res) => {
          FROM query_log WHERE at > NOW() - INTERVAL 60 MINUTE GROUP BY minute ORDER BY minute`),
     all(`SELECT action, COUNT(*) AS calls, ROUND(AVG(ms)) AS avg_ms, MAX(ms) AS max_ms, SUM(COALESCE(records, 0)) AS records
          FROM query_log WHERE ms IS NOT NULL GROUP BY action ORDER BY calls DESC`),
-    all(`SELECT c.id, c.name, c.key_bits, c.record_count, c.plaintext_bytes, COALESCE(SUM(LENGTH(r.cipher)), 0) AS cipher_bytes
+    all(`SELECT c.id, c.name, c.key_bits, c.record_count, c.plaintext_bytes, c.metrics, COALESCE(SUM(LENGTH(r.cipher)), 0) AS cipher_bytes
          FROM campaigns c LEFT JOIN records r ON r.campaign_id = c.id GROUP BY c.id ORDER BY c.id`),
     all(`SELECT table_name AS name, data_length + index_length AS bytes, table_rows AS approx_rows
          FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY bytes DESC`),
     one(`SELECT COUNT(*) AS requests, SUM(outcome = 'denied') AS denied, SUM(outcome = 'error') AS errors FROM query_log`),
   ]);
-  res.json({ recent, perMinute, byAction, storage, tables, totals, fault: fault.mode, kMin: Number(process.env.K_MIN || 10) });
+  res.json({ recent, perMinute, byAction, storage, tables, totals, fault: fault.mode });
 });
 
 app.put('/admin/fault', allow('admin'), (req, res) => {

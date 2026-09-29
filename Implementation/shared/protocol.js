@@ -5,8 +5,6 @@ import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex, hexToBytes, utf8ToBytes, concatBytes } from '@noble/hashes/utils';
 import { p256 } from '@noble/curves/p256';
 
-export { bytesToHex, hexToBytes };
-
 // Coarse attributes the cloud may group by. Everything identifying stays
 // with the owner; everything measured is encrypted.
 export const DIMENSIONS = ['department', 'ward_type', 'admission_type', 'insurance_type', 'admission_month', 'sex', 'age_band'];
@@ -57,11 +55,9 @@ export function bigintToBytes(x, width) {
   if (hex.length > width * 2) throw new RangeError('value wider than slot');
   return hexToBytes(hex);
 }
-export const bytesToBigint = (b) => BigInt('0x' + (bytesToHex(b) || '0'));
-
 export function splitCipher(blob, width) {
   const out = [];
-  for (let i = 0; i < blob.length; i += width) out.push(bytesToBigint(blob.subarray(i, i + width)));
+  for (let i = 0; i < blob.length; i += width) out.push(BigInt('0x' + bytesToHex(blob.subarray(i, i + width))));
   return out;
 }
 
@@ -145,7 +141,7 @@ export function verifyChain(entries, pubHex) {
 
 // ---- Paillier, public side ----
 
-export function modPow(base, exp, mod) {
+function modPow(base, exp, mod) {
   let result = 1n;
   base %= mod;
   while (exp > 0n) {

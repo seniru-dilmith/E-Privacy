@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
-import { METRICS, METRIC, DIMENSIONS } from '@e-privacy/shared';
+import { METRICS, METRIC } from '@e-privacy/shared';
 import * as dataset from './dataset.js';
 import { startCampaign, jobs, listStates, analyze, checkRecord, readState } from './campaign.js';
 import { poolSize } from './pool.js';
@@ -39,7 +39,6 @@ app.get('/dataset', async (req, res) => {
   res.json({
     ...(await dataset.info()),
     metrics: METRICS,
-    dimensions: DIMENSIONS,
     defaultKeyBits: Number(process.env.DEFAULT_KEY_BITS || 2048),
     threads: poolSize,
   });

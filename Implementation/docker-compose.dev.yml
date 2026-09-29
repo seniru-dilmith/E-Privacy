@@ -2,6 +2,12 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml watch
 # `watch` copies changed files into the running containers (no bind mounts),
 # shared/dev/watch.js restarts the APIs and Vite hot-reloads the UI on :5173.
+x-sync-shared: &shared
+  action: sync
+  path: ./shared
+  target: /app/shared
+  ignore: [node_modules/]
+
 services:
   mysql:
     ports:
@@ -16,10 +22,7 @@ services:
         - action: sync
           path: ./cloud/src
           target: /app/cloud/src
-        - action: sync
-          path: ./shared
-          target: /app/shared
-          ignore: [node_modules/]
+        - *shared
         - action: rebuild
           path: ./cloud/package.json
 
@@ -32,10 +35,7 @@ services:
         - action: sync
           path: ./owner/src
           target: /app/owner/src
-        - action: sync
-          path: ./shared
-          target: /app/shared
-          ignore: [node_modules/]
+        - *shared
         - action: rebuild
           path: ./owner/package.json
 
@@ -59,9 +59,6 @@ services:
         - action: sync
           path: ./web/index.html
           target: /app/web/index.html
-        - action: sync
-          path: ./shared
-          target: /app/shared
-          ignore: [node_modules/]
+        - *shared
         - action: rebuild
           path: ./web/package.json

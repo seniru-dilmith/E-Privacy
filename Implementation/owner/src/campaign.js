@@ -28,13 +28,10 @@ export async function listStates() {
   return states.map(({ key, indexes, leaves, ...rest }) => rest).sort((a, b) => b.id - a.id);
 }
 
-export const encode = (metric, raw) => BigInt(Math.round(Number(raw) * METRIC[metric].scale));
-
-function plaintextColumns(row, columns) {
-  return columns.map(({ metric, squared }) => {
-    const v = encode(metric, row[metric]);
-    return (squared ? v * v : v).toString();
-  });
+// Fixed-point integer the ciphertext column holds for this row (x, or x^2).
+function encode(row, metric, squared) {
+  const v = BigInt(Math.round(Number(row[metric]) * METRIC[metric].scale));
+  return squared ? v * v : v;
 }
 
 const dims = (row) => Object.fromEntries(DIMENSIONS.map((d) => [d, row[d]]));
@@ -82,7 +79,7 @@ export function startCampaign({ name, rows, keyBits, metrics, spread }) {
     job.phase = 'encrypting';
     job.total = picked.length;
     t = Date.now();
-    const plain = picked.map((p) => plaintextColumns(p.row, columns));
+    const plain = picked.map((p) => columns.map((c) => encode(p.row, c.metric, c.squared).toString()));
     const ciphers = await pool.map('encrypt', { n: key.n, g: key.g }, plain, 8, (k) => {
       job.done += k;
       job.rate = job.done / ((Date.now() - t) / 1000);
@@ -131,7 +128,6 @@ export function startCampaign({ name, rows, keyBits, metrics, spread }) {
     note(`Receipt #${receipt.entry.seq} verified: root ${localRoot.slice(0, 16)}… signed by the cloud`);
 
     job.phase = 'done';
-    job.finishedAt = Date.now();
   })().catch((err) => {
     job.phase = 'failed';
     job.error = err.message;
@@ -183,22 +179,18 @@ export async function analyze(id, { groupBy = [], metrics = [] }) {
     g.n++;
     for (const col of payload.metrics) {
       const [metric, sq] = col.split('^');
-      const v = encode(metric, row[metric]);
-      g.sums[col] += sq ? v * v : v;
+      g.sums[col] += encode(row, metric, Boolean(sq));
     }
   }
   const plaintextMs = Date.now() - t2;
 
-  const groups = payload.groups.map((g) => ({ key: g.key, n: g.n, sums: {}, plain: plainSums.get(JSON.stringify(g.key)) }));
-  flat.forEach((f, i) => { groups[f.gi].sums[f.col] = BigInt('0x' + opened[i].m); });
-
-  const accuracy = [];
-  for (const g of groups) {
-    for (const col of payload.metrics) {
-      const expected = g.plain?.sums[col] ?? 0n;
-      accuracy.push({ key: g.key, column: col, decrypted: g.sums[col].toString(), plaintext: expected.toString(), diff: (g.sums[col] - expected).toString() });
-    }
-  }
+  const groups = payload.groups.map((g) => ({ key: g.key, n: g.n, sums: {} }));
+  const accuracy = flat.map((f, i) => {
+    const { key, sums } = groups[f.gi];
+    const got = (sums[f.col] = BigInt('0x' + opened[i].m));
+    const expected = plainSums.get(JSON.stringify(key))?.sums[f.col] ?? 0n;
+    return { key, column: f.col, decrypted: got.toString(), plaintext: expected.toString(), diff: (got - expected).toString() };
+  });
   const mismatches = accuracy.filter((a) => a.diff !== '0').length;
   checks.push({ id: 'plaintext', label: 'Every decrypted sum equals our own plaintext recomputation', ok: mismatches === 0, detail: `${mismatches} of ${accuracy.length} differ` });
 
@@ -253,7 +245,6 @@ export async function checkRecord(id, seq) {
     seq,
     ourLeaf: ours,
     cloudLeaf: got.leaf,
-    root: got.root,
     receiptRoot: state.receipt?.root,
     proof: got.proof,
     leafMatches: got.leaf === ours,
