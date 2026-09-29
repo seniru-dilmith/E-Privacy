@@ -91,7 +91,7 @@ async function leave(d) {
 }
 
 .brand { padding: 26px 22px 22px; text-decoration: none; display: grid; background: var(--trust-deep); }
-.brand .word { font-family: var(--serif); font-size: 25px; letter-spacing: -0.01em; }
+.brand .word { font-size: 23px; font-weight: 700; letter-spacing: -0.02em; }
 .brand .tag { font-size: 11.5px; color: var(--muted); }
 
 .zone { padding: 18px 22px; display: grid; align-content: start; gap: 14px; }

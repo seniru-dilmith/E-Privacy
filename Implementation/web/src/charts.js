@@ -16,6 +16,7 @@ const INK2 = '#52514e';
 const MUTED = '#898781';
 const GRID = '#e1e0d9';
 const AXIS = '#c3c2b7';
+const FONT = "'Atkinson Hyperlegible Next', system-ui, sans-serif";
 
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -46,11 +47,11 @@ const tooltipBase = {
   borderColor: 'rgba(11,11,11,0.12)',
   borderWidth: 1,
   padding: [8, 12],
-  textStyle: { color: INK, fontFamily: 'IBM Plex Sans', fontSize: 12.5 },
+  textStyle: { color: INK, fontFamily: FONT, fontSize: 12.5 },
   extraCssText: 'box-shadow: 0 6px 18px rgba(20,20,20,0.08); border-radius: 2px;',
 };
 
-const axisLabel = { color: MUTED, fontFamily: 'IBM Plex Sans', fontSize: 11.5 };
+const axisLabel = { color: MUTED, fontFamily: FONT, fontSize: 11.5 };
 const valueAxis = (extra = {}) => ({
   type: 'value',
   axisLabel: { ...axisLabel, formatter: (v) => compact(v) },
@@ -106,7 +107,7 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
               { type: 'line', shape: { x1: lo[0], y1: lo[1] - 5, x2: lo[0], y2: lo[1] + 5 }, style },
               { type: 'line', shape: { x1: hi[0], y1: hi[1] - 5, x2: hi[0], y2: hi[1] + 5 }, style },
               // value label sits past the whisker, clear of the marks
-              { type: 'text', style: { text: format(api.value(2)), x: hi[0] + 8, y: hi[1], verticalAlign: 'middle', fill: INK, font: '11.5px IBM Plex Sans' } },
+              { type: 'text', style: { text: format(api.value(2)), x: hi[0] + 8, y: hi[1], verticalAlign: 'middle', fill: INK, font: `11.5px ${FONT}` } },
             ],
           };
         },
