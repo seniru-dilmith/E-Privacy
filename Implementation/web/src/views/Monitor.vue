@@ -5,7 +5,6 @@ import { traffic, bars, fmt, bytes } from '../charts.js';
 import EChart from '../components/EChart.vue';
 
 const m = ref(null);
-const campaigns = ref([]);
 const error = ref('');
 const fault = ref('off');
 const faultMsg = ref('');
@@ -16,10 +15,8 @@ const BUDGET = 11;
 
 async function load() {
   try {
-    const [metrics, list] = await Promise.all([get('cloud', '/metrics'), get('cloud', '/campaigns')]);
-    m.value = metrics;
-    campaigns.value = list;
-    fault.value = metrics.fault;
+    m.value = await get('cloud', '/metrics');
+    fault.value = m.value.fault;
     error.value = '';
   } catch (err) {
     error.value = err.message;
@@ -75,8 +72,7 @@ const latencyOption = computed(() => {
 const storage = computed(() => {
   if (!m.value) return [];
   return m.value.storage.map((s) => {
-    const c = campaigns.value.find((x) => x.id === s.id);
-    const cols = c ? c.metrics.reduce((a, x) => a + 1 + (x.squared ? 1 : 0), 0) : 1;
+    const cols = s.metrics.reduce((a, x) => a + 1 + (x.squared ? 1 : 0), 0);
     const cipher = Number(s.cipher_bytes);
     const plain = Number(s.plaintext_bytes);
     return { ...s, cols, cipher, plain, perRow: plain ? cipher / plain : null, perMeasure: plain ? cipher / cols / plain : null };
@@ -210,12 +206,7 @@ const expansionOption = computed(() => {
 </template>
 
 <style scoped>
-.body { display: grid; gap: 28px; min-width: 0; }
-figure { margin: 0; min-width: 0; }
-figcaption { font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
-figcaption .muted { font-size: 12px; }
 .tables { max-width: 520px; }
 .warn { color: var(--warn); }
-.log td { white-space: nowrap; }
-.log td:nth-child(4) { white-space: normal; min-width: 200px; }
+.log td:first-child, .log td:last-child { white-space: nowrap; }
 </style>

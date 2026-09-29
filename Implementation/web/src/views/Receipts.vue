@@ -122,7 +122,6 @@ async function verify(random = false) {
 .facts dt { color: var(--muted); font-size: 13px; }
 .facts dd { margin: 0; min-width: 0; }
 .sig { overflow-wrap: anywhere; font-size: 11.5px; }
-.body { display: grid; gap: 22px; min-width: 0; }
 .ask { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; }
 .ask input { width: 160px; }
 .path { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid var(--accent); display: grid; gap: 0; }

@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { METRIC } from '@e-privacy/shared';
 import { get, post } from '../api.js';
-import { whiskers, bars, columns, band, heatmap, fmt, compact, pct, SERIES } from '../charts.js';
+import { whiskers, bars, columns, band, heatmap, fmt, compact, pct } from '../charts.js';
 import EChart from '../components/EChart.vue';
 import Checks from '../components/Checks.vue';
 
@@ -60,7 +60,6 @@ watch(selected, (id) => {
 
 // ---- shaping helpers ----
 const ok = (r) => r && r.accepted && r.groups?.length;
-const keyOf = (g, d) => g.key[d];
 
 const WARD_ORDER = ['General', 'Semi-Private', 'Private', 'HDU', 'ICU'];
 const TYPE_ORDER = ['Elective', 'Emergency', 'Transfer'];
@@ -91,7 +90,7 @@ const dept = computed(() => {
   if (!ok(r)) return null;
   // One shared order (by mean bill, else by size) keeps the four panels comparable.
   const gs = [...r.groups].sort((a, b) => (b.stats.total_charges?.mean ?? b.n) - (a.stats.total_charges?.mean ?? a.n));
-  const categories = gs.map((g) => keyOf(g, 'department'));
+  const categories = gs.map((g) => g.key.department);
   const n = gs.map((g) => g.n);
   const pick = (m) => (gs[0].stats[m] ? { mean: gs.map((g) => g.stats[m].mean), sd: gs.map((g) => g.stats[m].sd ?? null) } : null);
   const out = [];
@@ -139,7 +138,7 @@ const age = computed(() => {
   return Object.keys(gs[0].stats).map((m) => ({
     title: METRIC[m].label,
     note: `${METRIC[m].unit || 'value'} by age band, mean ± 1 s.d.`,
-    option: band({ categories, mean: gs.map((g) => g.stats[m].mean), sd: gs[0].stats[m].sd != null ? gs.map((g) => g.stats[m].sd) : null, format: (v) => fmt(v, 1), color: SERIES[0] }),
+    option: band({ categories, mean: gs.map((g) => g.stats[m].mean), sd: gs[0].stats[m].sd != null ? gs.map((g) => g.stats[m].sd) : null, format: (v) => fmt(v, 1) }),
   }));
 });
 
@@ -302,10 +301,6 @@ const accuracy = computed(() => {
 <style scoped>
 .picker { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 28px; margin-top: 8px; }
 .picker select { min-width: min(420px, 80vw); }
-.body { display: grid; gap: 26px; min-width: 0; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 34px 48px; }
-figure { margin: 0; min-width: 0; }
-figcaption { font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
-figcaption .muted { font-size: 12px; }
 .note { margin-top: 10px; }
 </style>

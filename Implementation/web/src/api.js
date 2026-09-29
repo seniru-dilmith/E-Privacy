@@ -21,8 +21,6 @@ function save(domain, value) {
   } catch { /* private mode: session lives in memory only */ }
 }
 
-export class ApiError extends Error {}
-
 export async function api(domain, method, path, body) {
   const s = sessions[domain];
   const res = await fetch(`/api/${domain}${path}`, {
@@ -37,7 +35,7 @@ export async function api(domain, method, path, body) {
     router.push({ path: '/login', query: { domain, next: router.currentRoute.value.fullPath } });
   }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(data?.error ?? `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
   return data;
 }
 

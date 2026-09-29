@@ -8,7 +8,7 @@ import { SVGRenderer } from 'echarts/renderers';
 echarts.use([BarChart, LineChart, ScatterChart, HeatmapChart, CustomChart, GridComponent, TooltipComponent, VisualMapComponent, MarkLineComponent, LegendComponent, SVGRenderer]);
 export { echarts };
 
-export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a'];
+const BLUE = '#2a78d6'; // slot 1 of the validated palette; every chart here is single-series
 export const CRITICAL = '#d03b3b';
 export const SEQUENTIAL = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
 const INK = '#16181a';
@@ -72,7 +72,7 @@ const categoryAxis = (data, extra = {}) => ({
 const tipRow = (value, label) => `<div style="display:flex;gap:10px;align-items:baseline"><b style="font-variant-numeric:tabular-nums">${esc(value)}</b><span style="color:${INK2}">${esc(label)}</span></div>`;
 
 // Mean ± 1 s.d. per category, horizontal: honest about spread, unlike a bar.
-export function whiskers({ categories, mean, sd, n, format = compact, color = SERIES[0], unit = '' }) {
+export function whiskers({ categories, mean, sd, n, format = compact, color = BLUE, unit = '' }) {
   const rows = categories.map((c, i) => [mean[i] - (sd[i] ?? 0), mean[i] + (sd[i] ?? 0), mean[i], i]);
   return {
     animationDuration: 500,
@@ -126,7 +126,7 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
 }
 
 // Horizontal bars for rates or counts, value labelled at the bar end.
-export function bars({ categories, values, format = compact, color = SERIES[0], n, label = 'value', ref }) {
+export function bars({ categories, values, format = compact, color = BLUE, n, label = 'value', ref }) {
   return {
     animationDuration: 500,
     grid: { left: 8, right: 56, top: ref ? 24 : 8, bottom: 28, containLabel: true },
@@ -159,7 +159,7 @@ export function bars({ categories, values, format = compact, color = SERIES[0], 
 }
 
 // Vertical columns over an ordered axis (months).
-export function columns({ categories, values, format = compact, color = SERIES[0], label = 'value' }) {
+export function columns({ categories, values, format = compact, color = BLUE, label = 'value' }) {
   return {
     animationDuration: 500,
     grid: { left: 8, right: 8, top: 14, bottom: 8, containLabel: true },
@@ -177,7 +177,7 @@ export function columns({ categories, values, format = compact, color = SERIES[0
 
 // Mean with ± 1 s.d. band over an ordered axis (months, age bands).
 // zero: the measure can't go negative, so the axis starts at 0 and the band is clamped there.
-export function band({ categories, mean, sd, format = compact, color = SERIES[0], unit = '', label = 'mean', zero = false }) {
+export function band({ categories, mean, sd, format = compact, color = BLUE, unit = '', label = 'mean', zero = false }) {
   const lo = mean.map((m, i) => (zero ? Math.max(0, m - (sd?.[i] ?? 0)) : m - (sd?.[i] ?? 0)));
   const width = mean.map((m, i) => m + (sd?.[i] ?? 0) - lo[i]);
   return {
@@ -263,7 +263,7 @@ export function traffic({ minutes, allowed, denied }) {
     xAxis: categoryAxis(minutes, { axisLabel: { ...axisLabel, hideOverlap: true } }),
     yAxis: valueAxis({ minInterval: 1 }),
     series: [
-      { name: 'Allowed', type: 'bar', stack: 't', data: allowed, itemStyle: { color: SERIES[0], borderColor: '#fff', borderWidth: 1 } },
+      { name: 'Allowed', type: 'bar', stack: 't', data: allowed, itemStyle: { color: BLUE, borderColor: '#fff', borderWidth: 1 } },
       { name: 'Denied', type: 'bar', stack: 't', data: denied, itemStyle: { color: CRITICAL, borderColor: '#fff', borderWidth: 1, borderRadius: [3, 3, 0, 0] } },
     ],
   };
