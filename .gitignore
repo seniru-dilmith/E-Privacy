@@ -1,0 +1,28 @@
+# Python
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.pkl
+
+# LaTeX build output
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+/.env
