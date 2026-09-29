@@ -39,8 +39,10 @@ services:
         - action: rebuild
           path: ./owner/package.json
 
-  # Runs the Vite dev server from the build stage instead of nginx.
+  # Runs the Vite dev server from the build stage instead of nginx. Own image
+  # name, so it never replaces the nginx image the normal stack uses.
   web:
+    image: e-privacy-web-dev
     build:
       target: build
     command: ["npm", "run", "dev", "-w", "web", "--", "--host", "0.0.0.0", "--port", "5173"]
