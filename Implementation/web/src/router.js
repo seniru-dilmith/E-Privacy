@@ -7,6 +7,8 @@ const routes = [
   { path: '/campaigns', component: () => import('./views/Campaigns.vue'), meta: { domain: 'owner', title: 'Campaigns' } },
   { path: '/analysis/:id?', component: () => import('./views/Analysis.vue'), meta: { domain: 'owner', title: 'Analysis' } },
   { path: '/receipts/:id?', component: () => import('./views/Receipts.vue'), meta: { domain: 'owner', title: 'Receipts' } },
+  { path: '/board', component: () => import('./views/Board.vue'), meta: { domain: 'cloud', roles: ['auditor', 'admin'], title: 'Bulletin board' } },
+  { path: '/monitor', component: () => import('./views/Monitor.vue'), meta: { domain: 'cloud', roles: ['admin'], title: 'Monitor' } },
 ];
 
 const router = createRouter({ history: createWebHistory(), routes });

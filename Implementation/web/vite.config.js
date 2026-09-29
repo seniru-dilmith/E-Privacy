@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue';
 // (e.g. `docker compose port`) or leave them and use the nginx build.
 export default defineConfig({
   plugins: [vue()],
+  worker: { format: 'es' },
+  build: { chunkSizeWarningLimit: 1200 },
   server: {
     proxy: {
       '/api/owner': { target: process.env.OWNER_URL ?? 'http://localhost:4000', rewrite: (p) => p.replace(/^\/api\/owner/, '') },
