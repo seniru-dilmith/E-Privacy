@@ -1,0 +1,90 @@
+name: e-privacy
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [cloud_net]
+
+  # Untrusted domain: sees ciphertext, public keys and coarse dimensions only.
+  cloud:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      DB_HOST: mysql
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      K_MIN: ${K_MIN}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS}
+      CLOUD_OWNER_USER: ${CLOUD_OWNER_USER}
+      CLOUD_OWNER_PASSWORD: ${CLOUD_OWNER_PASSWORD}
+      AUDITOR_USER: ${AUDITOR_USER}
+      AUDITOR_PASSWORD: ${AUDITOR_PASSWORD}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SIGNING_KEY_FILE: /var/lib/cloud/signing.key
+    volumes:
+      - cloud_keys:/var/lib/cloud
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [cloud_net, edge]
+
+  # Trusted domain: holds the private keys and the plaintext dataset.
+  # It has no database credentials and reaches the cloud only through its API.
+  owner:
+    build:
+      context: .
+      dockerfile: owner/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      CLOUD_URL: http://cloud:5000
+      CLOUD_OWNER_USER: ${CLOUD_OWNER_USER}
+      CLOUD_OWNER_PASSWORD: ${CLOUD_OWNER_PASSWORD}
+      OWNER_USER: ${OWNER_USER}
+      OWNER_PASSWORD: ${OWNER_PASSWORD}
+      DEFAULT_KEY_BITS: ${DEFAULT_KEY_BITS}
+      DATASET: /data/hospital_admissions.csv
+      KEY_DIR: /keys
+    volumes:
+      - ./data:/data:ro
+      - owner_keys:/keys
+    depends_on: [cloud]
+    networks: [edge]
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT}:80"
+    depends_on: [cloud, owner]
+    networks: [edge]
+
+networks:
+  cloud_net:
+  edge:
+
+volumes:
+  mysql_data:
+  cloud_keys:
+  owner_keys:

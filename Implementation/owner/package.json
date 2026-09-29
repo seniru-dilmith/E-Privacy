@@ -1,0 +1,11 @@
+{
+  "name": "owner",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node src/index.js" },
+  "dependencies": {
+    "@e-privacy/shared": "*",
+    "express": "^5.1.0",
+    "paillier-bigint": "^3.4.3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@e-privacy/shared",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./protocol.js" },
+  "dependencies": {
+    "@noble/curves": "^1.9.0",
+    "@noble/hashes": "^1.8.0"
+  }
+}
