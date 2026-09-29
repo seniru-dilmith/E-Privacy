@@ -1,0 +1,10 @@
+{
+  "name": "e-privacy",
+  "private": true,
+  "type": "module",
+  "workspaces": ["shared", "cloud", "owner", "web"],
+  "scripts": {
+    "dataset": "node data/generate.js",
+    "test": "node --test shared/"
+  }
+}
