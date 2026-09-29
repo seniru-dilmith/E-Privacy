@@ -29,7 +29,10 @@ export function run(type, key, items) {
   return new Promise((resolve, reject) => {
     const id = nextId++;
     pending.set(id, { resolve, reject });
-    queue.push({ id, type, key, items });
+    // Decryptions are small and someone is waiting on them; let them jump
+    // ahead of a long-running encryption job.
+    const task = { id, type, key, items };
+    type === 'decrypt' ? queue.unshift(task) : queue.push(task);
     drain();
   });
 }
