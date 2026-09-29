@@ -252,7 +252,7 @@ const accuracy = computed(() => {
           <template v-else-if="results.ward && !results.ward.skipped">
             <Checks :result="results.ward" />
             <EChart v-if="ward" :option="ward" :height="320" label="Mean bill by ward and admission type" />
-            <p v-else class="muted small">Needs the total charges measure.</p>
+            <p v-else-if="results.ward.accepted" class="muted small">Needs the total charges measure.</p>
           </template>
         </div>
       </section>
