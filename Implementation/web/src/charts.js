@@ -75,7 +75,7 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
   const rows = categories.map((c, i) => [mean[i] - (sd[i] ?? 0), mean[i] + (sd[i] ?? 0), mean[i], i]);
   return {
     animationDuration: 500,
-    grid: { left: 8, right: 24, top: 12, bottom: 28, containLabel: true },
+    grid: { left: 8, right: 52, top: 12, bottom: 28, containLabel: true },
     tooltip: {
       ...tooltipBase,
       trigger: 'axis',
@@ -105,6 +105,8 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
               { type: 'line', shape: { x1: lo[0], y1: lo[1], x2: hi[0], y2: hi[1] }, style },
               { type: 'line', shape: { x1: lo[0], y1: lo[1] - 5, x2: lo[0], y2: lo[1] + 5 }, style },
               { type: 'line', shape: { x1: hi[0], y1: hi[1] - 5, x2: hi[0], y2: hi[1] + 5 }, style },
+              // value label sits past the whisker, clear of the marks
+              { type: 'text', style: { text: format(api.value(2)), x: hi[0] + 8, y: hi[1], verticalAlign: 'middle', fill: INK, font: '11.5px IBM Plex Sans' } },
             ],
           };
         },
@@ -116,7 +118,6 @@ export function whiskers({ categories, mean, sd, n, format = compact, color = SE
         data: mean.map((m, i) => [m, i]),
         symbolSize: 10,
         itemStyle: { color, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, position: 'right', distance: 10, color: INK, fontSize: 11.5, formatter: (p) => format(p.value[0]) },
         z: 2,
       },
     ],
@@ -134,7 +135,7 @@ export function bars({ categories, values, format = compact, color = SERIES[0], 
       formatter: (p) => `<div style="margin-bottom:4px;color:${MUTED}">${esc(categories[p.dataIndex])}</div>`
         + tipRow(format(p.value), label) + (n ? tipRow(n[p.dataIndex].toLocaleString(), 'admissions') : ''),
     },
-    xAxis: valueAxis({ axisLabel: { ...axisLabel, formatter: (v) => format(v) }, ...(ref && { max: (v) => Math.ceil(Math.max(v.max, ref.value) * 1.08) }) }),
+    xAxis: valueAxis({ splitNumber: 4, axisLabel: { ...axisLabel, formatter: (v) => format(v) }, ...(ref && { max: (v) => Math.ceil(Math.max(v.max, ref.value) * 1.08) }) }),
     yAxis: categoryAxis(categories, { inverse: true }),
     series: [{
       type: 'bar',
@@ -174,9 +175,10 @@ export function columns({ categories, values, format = compact, color = SERIES[0
 }
 
 // Mean with ± 1 s.d. band over an ordered axis (months, age bands).
+// zero: the measure can't go negative, so the axis starts at 0 and the band is clamped there.
 export function band({ categories, mean, sd, format = compact, color = SERIES[0], unit = '', label = 'mean', zero = false }) {
-  const lo = mean.map((m, i) => m - (sd?.[i] ?? 0));
-  const width = mean.map((m, i) => 2 * (sd?.[i] ?? 0));
+  const lo = mean.map((m, i) => (zero ? Math.max(0, m - (sd?.[i] ?? 0)) : m - (sd?.[i] ?? 0)));
+  const width = mean.map((m, i) => m + (sd?.[i] ?? 0) - lo[i]);
   return {
     animationDuration: 500,
     grid: { left: 8, right: 16, top: 14, bottom: 8, containLabel: true },
@@ -191,7 +193,7 @@ export function band({ categories, mean, sd, format = compact, color = SERIES[0]
       },
     },
     xAxis: categoryAxis(categories, { boundaryGap: false, axisLabel: { ...axisLabel, hideOverlap: true } }),
-    yAxis: valueAxis({ scale: !zero, axisLabel: { ...axisLabel, formatter: (v) => format(v) } }),
+    yAxis: valueAxis({ scale: !zero, ...(zero && { min: 0 }) }),
     series: [
       ...(sd ? [
         { type: 'line', data: lo, stack: 'band', symbol: 'none', lineStyle: { opacity: 0 }, silent: true },

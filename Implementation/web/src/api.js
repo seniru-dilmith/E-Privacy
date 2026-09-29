@@ -30,7 +30,12 @@ export async function api(domain, method, path, body) {
     headers: { ...(s && { authorization: `Bearer ${s.token}` }), ...(body !== undefined && { 'content-type': 'application/json' }) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401 && s) save(domain, null);
+  if (res.status === 401 && s) {
+    // Session expired or the service restarted: go back to that side's sign-in.
+    save(domain, null);
+    const { default: router } = await import('./router.js');
+    router.push({ path: '/login', query: { domain, next: router.currentRoute.value.fullPath } });
+  }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(data?.error ?? `Request failed (${res.status})`);
   return data;

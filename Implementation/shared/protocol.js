@@ -22,7 +22,7 @@ export const METRICS = [
   { name: 'systolic_bp',         label: 'Systolic BP',          unit: 'mmHg',  scale: 1,   squared: true },
   { name: 'diastolic_bp',        label: 'Diastolic BP',         unit: 'mmHg',  scale: 1,   squared: true },
   { name: 'heart_rate',          label: 'Heart rate',           unit: 'bpm',   scale: 1,   squared: true },
-  { name: 'bmi',                 label: 'BMI',                  unit: '',      scale: 10,  squared: true },
+  { name: 'bmi',                 label: 'BMI',                  unit: 'kg/m²', scale: 10,  squared: true },
   { name: 'blood_glucose',       label: 'Blood glucose',        unit: 'mg/dL', scale: 1,   squared: true },
   { name: 'medication_cost',     label: 'Medication cost',      unit: 'LKR',   scale: 100, squared: true },
   { name: 'total_charges',       label: 'Total charges',        unit: 'LKR',   scale: 100, squared: true },

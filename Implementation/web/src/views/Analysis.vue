@@ -115,7 +115,7 @@ const month = computed(() => {
   if (gs[0].stats.total_charges) {
     out.push({
       title: 'Mean bill per month',
-      note: 'line = mean, band = ± 1 s.d., LKR',
+      note: 'line = mean, band = ± 1 s.d. (floored at 0), LKR',
       option: band({ categories, mean: gs.map((g) => g.stats.total_charges.mean), sd: gs[0].stats.total_charges.sd != null ? gs.map((g) => g.stats.total_charges.sd) : null, zero: true }),
     });
   }

@@ -11,10 +11,11 @@ const error = ref('');
 let timer;
 
 const today = new Date().toISOString().slice(0, 10);
-const form = reactive({ name: `Admissions sample ${today}`, rows: 1000, keyBits: 2048, metrics: [], spread: true });
+const form = reactive({ name: `Admissions sample ${today}`, rows: 500, keyBits: 2048, metrics: [], spread: true });
 
-// Measured on an 8-core laptop; replaced by the last real run once there is one.
-const ENC_PER_SEC = { 1024: 700, 2048: 115, 3072: 36 };
+// Sustained rates measured in Docker Desktop on an 8-core laptop; replaced by
+// the last real run at the same key length once there is one.
+const ENC_PER_SEC = { 1024: 180, 2048: 30, 3072: 10 };
 const PHASES = ['sampling', 'keygen', 'encrypting', 'spot-check', 'uploading', 'committing', 'done'];
 const PHASE_LABEL = { sampling: 'Sample', keygen: 'Keys', encrypting: 'Encrypt', 'spot-check': 'Spot-check', uploading: 'Upload', committing: 'Receipt', done: 'Done' };
 
