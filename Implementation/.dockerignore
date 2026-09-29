@@ -1,5 +1,6 @@
 **/node_modules
 **/dist
 .env
-docs-components
-docs-rationale
+docs
+**/.env.local
+**/.data

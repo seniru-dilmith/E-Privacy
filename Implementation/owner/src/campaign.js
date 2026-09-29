@@ -1,6 +1,7 @@
 // Data Owner workflow: key generation, encryption, upload with receipts,
 // and verified decryption of cloud results. Private keys never leave /keys.
 import { randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { generateRandomKeys } from 'paillier-bigint';
@@ -13,6 +14,7 @@ import * as pool from './pool.js';
 import { cloud, pinnedBoardKey } from './cloud.js';
 
 const KEY_DIR = process.env.KEY_DIR;
+mkdirSync(KEY_DIR, { recursive: true, mode: 0o700 });
 const UPLOAD_BATCH = 250;
 const keyFile = (id) => join(KEY_DIR, `campaign-${id}.json`);
 

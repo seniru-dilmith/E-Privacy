@@ -1,0 +1,65 @@
+# Development overrides with hot reload. Use together with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml watch
+# `watch` copies changed files into the running containers (no bind mounts),
+# shared/dev/watch.js restarts the APIs and Vite hot-reloads the UI on :5173.
+services:
+  mysql:
+    ports:
+      - "${DEV_MYSQL_PORT:-3307}:3306"
+
+  cloud:
+    command: ["node", "shared/dev/watch.js", "cloud/src/index.js", "cloud/src", "shared"]
+    ports:
+      - "5000:5000"
+    develop:
+      watch:
+        - action: sync
+          path: ./cloud/src
+          target: /app/cloud/src
+        - action: sync
+          path: ./shared
+          target: /app/shared
+          ignore: [node_modules/]
+        - action: rebuild
+          path: ./cloud/package.json
+
+  owner:
+    command: ["node", "shared/dev/watch.js", "owner/src/index.js", "owner/src", "shared"]
+    ports:
+      - "4000:4000"
+    develop:
+      watch:
+        - action: sync
+          path: ./owner/src
+          target: /app/owner/src
+        - action: sync
+          path: ./shared
+          target: /app/shared
+          ignore: [node_modules/]
+        - action: rebuild
+          path: ./owner/package.json
+
+  # Runs the Vite dev server from the build stage instead of nginx.
+  web:
+    build:
+      target: build
+    command: ["npm", "run", "dev", "-w", "web", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      OWNER_URL: http://owner:4000
+      CLOUD_URL: http://cloud:5000
+    ports:
+      - "5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./web/src
+          target: /app/web/src
+        - action: sync
+          path: ./web/index.html
+          target: /app/web/index.html
+        - action: sync
+          path: ./shared
+          target: /app/shared
+          ignore: [node_modules/]
+        - action: rebuild
+          path: ./web/package.json

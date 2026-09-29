@@ -73,15 +73,31 @@ web/         Vue 3 + ECharts, built by Vite and served by nginx (which also prox
 
 ## Development
 
+Hot reload in Docker (APIs restart on save, the UI hot-reloads on <http://localhost:5173>):
+
 ```bash
-npm install                 # workspaces: shared, cloud, owner, web
+docker compose -f docker-compose.yml -f docker-compose.dev.yml watch
+```
+
+Or on the host, with only MySQL in Docker (port 3307):
+
+```bash
+npm install
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d mysql
+cp cloud/.env.local.example cloud/.env.local   # fill in the passwords from .env
+cp owner/.env.local.example owner/.env.local
+npm run dev -w cloud    # and in two more terminals:
+npm run dev -w owner
+npm run dev -w web      # http://localhost:5173
+```
+
+Other tasks:
+
+```bash
 npm test                    # protocol checks with a real 1024-bit key
 npm run dataset             # rebuild data/hospital_admissions.csv (same seed → same file)
 node data/generate.js 20000 # or a smaller file
 ```
-
-The web app can run against the containers with `npm run dev -w web` if you publish the owner and cloud ports
-(`OWNER_URL` / `CLOUD_URL` override the proxy targets in `web/vite.config.js`).
 
 ## Configuration
 

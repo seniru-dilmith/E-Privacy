@@ -1,10 +1,12 @@
 // Append-only bulletin board (FR-6, Verifiability V2/V3): each entry is
 // SHA-256 chained to the previous one and signed with the cloud's P-256 key.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { newSigningKey, publicKeyOf, entryHash, signHash, GENESIS } from '@e-privacy/shared';
 import { pool, one, all } from './db.js';
 
 const KEY_FILE = process.env.SIGNING_KEY_FILE;
+mkdirSync(dirname(KEY_FILE), { recursive: true });
 if (!existsSync(KEY_FILE)) writeFileSync(KEY_FILE, newSigningKey(), { mode: 0o600 });
 const signingKey = readFileSync(KEY_FILE, 'utf8').trim();
 export const boardPublicKey = publicKeyOf(signingKey);
