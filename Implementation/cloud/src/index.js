@@ -3,6 +3,7 @@ import { DIMENSIONS, cipherColumns, cipherWidth, leafHash, merkleRoot, merklePro
 import { pool, one, all } from './db.js';
 import { allow, login, logout, syncUsers } from './auth.js';
 import * as board from './board.js';
+import { runQuery, fault } from './compute.js';
 
 const app = express();
 app.use(express.json({ limit: '64mb' }));
@@ -118,7 +119,60 @@ app.get('/campaigns/:id/records/:seq/proof', allow('owner', 'auditor'), async (r
   res.json({ seq: rows[index].seq, index, leaf: leaves[index], proof: merkleProof(leaves, index), root: merkleRoot(leaves) });
 });
 
+// ---- analytics ----
+
+app.post('/campaigns/:id/query', allow('owner'), async (req, res) => {
+  const c = await campaignRow(req.params.id);
+  if (!c) return res.status(404).json({ error: 'No such campaign' });
+  if (c.status !== 'committed') return res.status(409).json({ error: 'Campaign is not committed yet' });
+
+  const started = Date.now();
+  const result = await runQuery(c, { groupBy: req.body?.groupBy ?? [], metrics: req.body?.metrics ?? [] });
+  const entry = await board.append('query_result', c.id, { ...result, compute_ms: Date.now() - started });
+  res.locals.records = result.total;
+  res.locals.detail = `group by ${result.group_by.join(', ') || 'none'}; ${result.metrics.length} columns${fault.mode !== 'off' ? `; fault=${fault.mode}` : ''}`;
+  res.json(entry);
+});
+
+// The owner publishes (m, r) for each decrypted sum so auditors can check
+// g^m * r^n = C without the private key.
+app.post('/campaigns/:id/decryptions', allow('owner'), async (req, res) => {
+  const { query_seq: querySeq, values } = req.body ?? {};
+  const q = await board.entry(Number(querySeq));
+  if (!q || q.kind !== 'query_result' || q.campaign_id !== Number(req.params.id)) return res.status(400).json({ error: 'Unknown query entry' });
+  if (!Array.isArray(values) || values.some((v) => !HEX.test(v.m ?? '') || !HEX.test(v.r ?? ''))) return res.status(400).json({ error: 'values must carry hex m and r' });
+  const entry = await board.append('decryption_published', q.campaign_id, { campaign: q.campaign_id, query_seq: q.seq, values });
+  res.json(entry);
+});
+
+// ---- operator monitoring (FR-8): no key material, no plaintext ----
+
+app.get('/metrics', allow('admin'), async (req, res) => {
+  const [recent, perMinute, byAction, storage, tables, totals] = await Promise.all([
+    all('SELECT id, at, username, role, action, campaign_id, detail, records, ms, outcome FROM query_log ORDER BY id DESC LIMIT 200'),
+    all(`SELECT DATE_FORMAT(at, '%Y-%m-%d %H:%i') AS minute, COUNT(*) AS requests, SUM(outcome = 'denied') AS denied
+         FROM query_log WHERE at > NOW() - INTERVAL 60 MINUTE GROUP BY minute ORDER BY minute`),
+    all(`SELECT action, COUNT(*) AS calls, ROUND(AVG(ms)) AS avg_ms, MAX(ms) AS max_ms, SUM(COALESCE(records, 0)) AS records
+         FROM query_log WHERE ms IS NOT NULL GROUP BY action ORDER BY calls DESC`),
+    all(`SELECT c.id, c.name, c.key_bits, c.record_count, c.plaintext_bytes, COALESCE(SUM(LENGTH(r.cipher)), 0) AS cipher_bytes
+         FROM campaigns c LEFT JOIN records r ON r.campaign_id = c.id GROUP BY c.id ORDER BY c.id`),
+    all(`SELECT table_name AS name, data_length + index_length AS bytes, table_rows AS approx_rows
+         FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY bytes DESC`),
+    one(`SELECT COUNT(*) AS requests, SUM(outcome = 'denied') AS denied, SUM(outcome = 'error') AS errors FROM query_log`),
+  ]);
+  res.json({ recent, perMinute, byAction, storage, tables, totals, fault: fault.mode, kMin: Number(process.env.K_MIN || 10) });
+});
+
+app.put('/admin/fault', allow('admin'), (req, res) => {
+  const mode = req.body?.mode;
+  if (!['off', 'drop', 'tamper'].includes(mode)) return res.status(400).json({ error: 'mode must be off, drop or tamper' });
+  fault.mode = mode;
+  res.locals.detail = `fault=${mode}`;
+  res.json(fault);
+});
+
 app.use((err, req, res, next) => {
+  if (err.status) return res.status(err.status).json({ error: err.message });
   console.error(err);
   res.status(500).json({ error: 'Internal error' });
 });
