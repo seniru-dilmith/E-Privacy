@@ -93,7 +93,7 @@ app.post('/campaigns/:id/commit', allow('owner'), campaign('uploading'), async (
 });
 
 // Paged ciphertext listing, for auditors rebuilding the root and the sums.
-app.get('/campaigns/:id/records', allow('auditor', 'owner'), async (req, res) => {
+app.get('/campaigns/:id/records', anyRole, async (req, res) => {
   const after = Number(req.query.after ?? -1);
   const limit = Math.min(Number(req.query.limit) || 500, 2000);
   const rows = await all(
