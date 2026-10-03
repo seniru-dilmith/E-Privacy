@@ -21,6 +21,11 @@ router.beforeEach((to) => {
   return true;
 });
 
+// A tab opened before a rebuild still asks for the old chunk names: load the new build instead.
+router.onError((err, to) => {
+  if (/dynamically imported module|Importing a module script failed/.test(err.message)) location.assign(to.fullPath);
+});
+
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · E-Privacy` : 'E-Privacy';
 });
