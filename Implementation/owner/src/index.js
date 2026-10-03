@@ -68,6 +68,12 @@ app.get('/campaigns/:id', async (req, res) => {
   res.json({ ...rest, publicKey: { n: key.n, g: key.g } });
 });
 
+// The plaintext rows a campaign sampled. Served only here, inside the hospital.
+app.get('/campaigns/:id/data', async (req, res) => {
+  const { indexes } = await readState(Number(req.params.id));
+  res.type('text/csv').send(await dataset.csv(indexes));
+});
+
 app.post('/campaigns/:id/analyze', async (req, res) => {
   const { groupBy = [], metrics = [] } = req.body ?? {};
   if (!Array.isArray(groupBy) || !Array.isArray(metrics)) return res.status(400).json({ error: 'groupBy and metrics must be lists' });

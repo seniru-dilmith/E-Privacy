@@ -47,16 +47,21 @@ The database starts empty apart from the three cloud accounts. Records only reac
    signed Merkle root with its own. Encryption is the slow part: under Docker Desktop on an 8-core laptop, 600
    admissions × 26 values took 22 s at 1024 bits, and 1,000 admissions took 17 min at 2048 bits. The form shows an
    estimate before you start.
-2. **Analysis** (hospital). Runs five grouped queries. Each result is accepted only if the signature, the board copy,
+2. **Source data** (hospital). The rows a campaign sampled, in plaintext as they are in the CSV, with each column
+   marked encrypted, sent in clear or kept at the hospital. Downloadable as CSV.
+3. **Analysis** (hospital). Runs five grouped queries. Each result is accepted only if the signature, the board copy,
    the input-set root, the record count and a recomputation from the local plaintext all agree. Then the sums are
    decrypted and the randomness `r` is published so anyone can check the decryption.
-3. **Receipts** (hospital). Prove any single record is still stored as uploaded.
-4. **Bulletin board** (auditor). "Run all four checks" re-verifies the hash chain and signatures, rebuilds every Merkle
+4. **Receipts** (hospital). Prove any single record is still stored as uploaded.
+5. **Bulletin board** (auditor or admin). "Run all four checks" re-verifies the hash chain and signatures, rebuilds every Merkle
    root from the published ciphertexts, recomputes every encrypted sum and checks every published plaintext against
    `gᵐ · rⁿ ≡ C (mod n²)`. It runs in a Web Worker in the browser and uses only public data.
-5. **Monitor** (admin). Traffic, latency, storage expansion against the SRS budget, and a fault switch: *drop* leaves
+6. **Monitor** (admin). Traffic, latency, storage expansion against the SRS budget, and a fault switch: *drop* leaves
    a record out of each query, *tamper* doubles one ciphertext. Run an analysis afterwards and the hospital rejects it;
    run the audit and the matching check fails.
+7. **Database** (admin). The cloud's tables, read-only. Put a record next to its row on the Source data page: the name,
+   ID and exact values are gone, only coarse labels and ciphertext remain. Password hashes and session tokens are not
+   shown.
 
 ## Layout
 

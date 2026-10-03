@@ -6,8 +6,10 @@ const routes = [
   { path: '/login', component: () => import('./views/Login.vue'), meta: { bare: true } },
   { path: '/campaigns', component: () => import('./views/Campaigns.vue'), meta: { domain: 'owner', title: 'Campaigns' } },
   { path: '/analysis/:id?', component: () => import('./views/Analysis.vue'), meta: { domain: 'owner', title: 'Analysis' } },
+  { path: '/data/:id?', component: () => import('./views/Data.vue'), meta: { domain: 'owner', title: 'Source data' } },
   { path: '/receipts/:id?', component: () => import('./views/Receipts.vue'), meta: { domain: 'owner', title: 'Receipts' } },
   { path: '/board', component: () => import('./views/Board.vue'), meta: { domain: 'cloud', roles: ['auditor', 'admin'], title: 'Bulletin board' } },
+  { path: '/database/:table?', component: () => import('./views/Database.vue'), meta: { domain: 'cloud', roles: ['admin'], title: 'Database' } },
   { path: '/monitor', component: () => import('./views/Monitor.vue'), meta: { domain: 'cloud', roles: ['admin'], title: 'Monitor' } },
 ];
 

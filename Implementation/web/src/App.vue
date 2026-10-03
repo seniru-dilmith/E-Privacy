@@ -11,12 +11,14 @@ watchEffect(() => document.body.classList.toggle('cloud', domain.value === 'clou
 
 const hospitalLinks = [
   { to: '/campaigns', label: 'Campaigns', hint: 'encrypt & upload' },
+  { to: '/data', label: 'Source data', hint: 'plaintext sample' },
   { to: '/analysis', label: 'Analysis', hint: 'decrypt & verify' },
   { to: '/receipts', label: 'Receipts', hint: 'inclusion proofs' },
 ];
 const cloudLinks = [
   { to: '/board', label: 'Bulletin board', hint: 'public audit', roles: ['auditor', 'admin'] },
   { to: '/monitor', label: 'Monitor', hint: 'operators', roles: ['admin'] },
+  { to: '/database', label: 'Database', hint: 'what the cloud stores', roles: ['admin'] },
 ];
 
 const allowed = (link) => !link.roles || link.roles.includes(sessions.cloud?.role);

@@ -58,12 +58,13 @@ tamper-evident audit trail, and proofs that the cloud didn't cheat.
 
 ## What you can do with it
 
-- **Hospital records office**: choose a sample of admissions and a key length, watch them being encrypted, and
-  explore the decrypted results: department comparisons, monthly trends, ward costs, vital signs by age band,
-  and an accuracy ledger showing every decrypted sum matches the source data exactly.
+- **Hospital records office**: choose a sample of admissions and a key length, see the exact rows sampled, watch them
+  being encrypted, and explore the decrypted results: department comparisons, monthly trends, ward costs, vital
+  signs by age band, and an accuracy ledger showing every decrypted sum matches the source data exactly.
 - **Auditor**: replay the entire public record in the browser and confirm the log, the input data, the arithmetic
   and every published result.
-- **Operator**: monitor traffic, latency and ciphertext storage without ever seeing a key or a patient value.
+- **Operator**: monitor traffic, latency and ciphertext storage, and browse the cloud database itself, without ever
+  seeing a key or a patient value.
 
 ## Security goals
 

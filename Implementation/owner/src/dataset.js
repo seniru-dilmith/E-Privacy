@@ -51,6 +51,14 @@ export async function sample(k) {
   return picked.map(([index, line]) => ({ index, bytes: Buffer.byteLength(line) + 1, row: parse(line) }));
 }
 
+// The chosen rows exactly as they appear in the file, header first.
+export async function csv(indexes) {
+  const want = new Set(indexes);
+  const out = [];
+  for await (const [i, line] of lines()) if (want.has(i)) out.push(line);
+  return [header.join(','), ...out].join('\n') + '\n';
+}
+
 export async function load(indexes) {
   const want = new Set(indexes);
   const out = [];

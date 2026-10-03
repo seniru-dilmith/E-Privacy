@@ -154,6 +154,37 @@ app.get('/metrics', allow('admin'), async (req, res) => {
   res.json({ recent, perMinute, byAction, storage, tables, totals, fault: fault.mode });
 });
 
+// Read-only view of the cloud's own tables. Ciphertexts and payloads are cut
+// short for display; password hashes and live session tokens are withheld.
+const TABLES = {
+  campaigns: { cols: 'id, name, status, key_bits, record_count, plaintext_bytes, merkle_root, metrics, n, g, created_at', order: 'id DESC' },
+  records: { cols: `campaign_id, seq, ${DIMENSIONS.join(', ')}, LENGTH(cipher) AS cipher_bytes, LOWER(LEFT(HEX(cipher), 96)) AS cipher, leaf_hash`, order: 'campaign_id DESC, seq' },
+  board: { cols: 'seq, kind, campaign_id, LENGTH(payload) AS payload_bytes, LEFT(payload, 400) AS payload, prev_hash, hash, sig, created_at', order: 'seq DESC' },
+  query_log: { cols: '*', order: 'id DESC' },
+  users: { cols: 'id, username, role', order: 'id' },
+  sessions: { cols: 'user_id, expires_at', order: 'expires_at DESC' },
+};
+
+app.get('/admin/tables', allow('admin'), async (req, res) => {
+  res.json(await all(`SELECT table_name AS name, table_rows AS approx_rows FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name IN (?) ORDER BY table_name`, [Object.keys(TABLES)]));
+});
+
+app.get('/admin/tables/:name', allow('admin'), async (req, res) => {
+  const t = TABLES[req.params.name];
+  if (!t) return res.status(404).json({ error: 'No such table' });
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const campaignId = Number(req.query.campaign) || null;
+  const where = campaignId && ['records', 'board', 'query_log'].includes(req.params.name) ? 'WHERE campaign_id = ?' : '';
+  const params = where ? [campaignId] : [];
+  const [rows, count] = await Promise.all([
+    all(`SELECT ${t.cols} FROM ${req.params.name} ${where} ORDER BY ${t.order} LIMIT ? OFFSET ?`, [...params, limit, offset]),
+    one(`SELECT COUNT(*) AS total FROM ${req.params.name} ${where}`, params),
+  ]);
+  res.json({ total: count.total, rows });
+});
+
 app.put('/admin/fault', allow('admin'), (req, res) => {
   const mode = req.body?.mode;
   if (!['off', 'drop', 'tamper'].includes(mode)) return res.status(400).json({ error: 'mode must be off, drop or tamper' });

@@ -34,7 +34,9 @@ export async function api(domain, method, path, body) {
     const { default: router } = await import('./router.js');
     router.push({ path: '/login', query: { domain, next: router.currentRoute.value.fullPath } });
   }
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  const data = res.status === 204 ? null
+    : res.headers.get('content-type')?.startsWith('text/csv') ? await res.text()
+    : await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
   return data;
 }
