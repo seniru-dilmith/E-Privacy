@@ -1,7 +1,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { signIn, sessions } from '../api.js';
+import { signIn, signOut, sessions } from '../api.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -17,6 +17,11 @@ async function submit(domain) {
   f.error = '';
   try {
     const s = await signIn(domain, f.username, f.password);
+    // The hospital agent's service account can sign in to the cloud, but has no console page.
+    if (domain === 'cloud' && !['auditor', 'admin'].includes(s.role)) {
+      await signOut('cloud');
+      throw new Error('This is a service account. Sign in as an auditor or admin.');
+    }
     const fallback = domain === 'owner' ? '/campaigns' : s.role === 'admin' ? '/monitor' : '/board';
     const next = route.query.domain === domain && typeof route.query.next === 'string' ? route.query.next : fallback;
     router.push(next);
