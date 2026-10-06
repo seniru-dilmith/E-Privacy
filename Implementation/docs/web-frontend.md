@@ -8,7 +8,7 @@ Vue 3 single-page app, built by Vite and served by nginx, which also reverse-pro
 | File | Responsibility |
 |---|---|
 | `index.html`, `src/main.js` | entry; Google Fonts (Atkinson Hyperlegible Next and Mono) |
-| `src/App.vue` | the navigation rail split by the trust boundary; page tint per domain |
+| `src/App.vue` | the navigation rail split by the trust boundary; cloud links filtered to the signed-in role; page tint per domain |
 | `src/router.js` | routes, per-domain and per-role guards, page titles |
 | `src/api.js` | two independent sessions (`owner`, `cloud`), fetch wrapper, sign-in/out |
 | `src/theme.css` | design tokens and the shared typographic system (sections, figures, ledger tables, marks, controls) |

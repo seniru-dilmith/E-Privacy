@@ -38,6 +38,9 @@ Sign-ins come from `.env`:
 
 `CLOUD_OWNER_USER` is a service account the hospital agent uses to talk to the cloud; nobody signs in with it.
 
+One browser can be signed in to both sides at once (one hospital session, one cloud session as either auditor or
+admin). An expired session sends you back to that side's sign-in only; the other side stays signed in.
+
 The database starts empty apart from the three cloud accounts. Records only reach it as ciphertext, through a campaign.
 
 ## A walk through

@@ -59,9 +59,9 @@ async function leave(d) {
       <div class="zone cloudzone">
         <p class="zone-name"><b>Cloud</b> <span>untrusted · ciphertext only</span></p>
         <ul>
-          <li v-for="l in cloudLinks" :key="l.to" :class="{ locked: sessions.cloud && !allowed(l) }">
+          <li v-for="l in cloudLinks.filter((l) => !sessions.cloud || allowed(l))" :key="l.to">
             <RouterLink :to="l.to" :class="{ on: isActive(l.to) }">
-              {{ l.label }}<small>{{ sessions.cloud && !allowed(l) ? 'not for ' + sessions.cloud.role : l.hint }}</small>
+              {{ l.label }}<small>{{ l.hint }}</small>
             </RouterLink>
           </li>
         </ul>
@@ -119,7 +119,6 @@ li a small { font-size: 11.5px; color: var(--muted); }
 li a:hover { color: var(--ink); }
 .trust li a.on { border-left-color: var(--trust-accent); color: var(--ink); font-weight: 600; }
 .cloudzone li a.on { border-left-color: var(--cloud-accent); color: var(--ink); font-weight: 600; }
-li.locked a { opacity: 0.45; }
 
 .who { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; }
 
