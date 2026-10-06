@@ -1,0 +1,58 @@
+erDiagram
+    users ||--o{ sessions : "signs in with"
+    campaigns ||--o{ records : "holds"
+    campaigns ||..o{ board : "described by"
+    campaigns ||..o{ query_log : "referenced by"
+    users {
+        int id PK
+        varchar username UK
+        enum role "owner, auditor, admin"
+        varchar pass_hash "scrypt"
+    }
+    sessions {
+        char token PK "64 hex"
+        int user_id FK
+        datetime expires_at
+    }
+    campaigns {
+        int id PK
+        varchar name
+        smallint key_bits
+        text n "public modulus"
+        text g "generator"
+        json metrics
+        int record_count
+        bigint plaintext_bytes
+        char merkle_root
+        enum status "uploading, committed"
+        datetime created_at
+    }
+    records {
+        int campaign_id PK
+        int seq PK
+        varchar seven_labels "coarse grouping labels"
+        longblob cipher "packed ciphertexts"
+        char leaf_hash
+    }
+    board {
+        int seq PK
+        varchar kind
+        int campaign_id "no FK on purpose"
+        longtext payload "exact signed string"
+        char prev_hash
+        char hash
+        char sig
+        datetime created_at
+    }
+    query_log {
+        bigint id PK
+        datetime at
+        varchar username
+        varchar role
+        varchar action
+        int campaign_id
+        varchar detail
+        int records
+        int ms
+        enum outcome "allowed, denied, error"
+    }

@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor U as Data owner
+    participant A as Owner agent
+    participant W as Worker pool
+    participant C as Cloud gateway
+    participant B as Bulletin board
+    U->>A: POST /campaigns (rows, key length, measures)
+    A->>A: sample rows, drop identifiers
+    A->>A: generate Paillier keypair
+    A->>C: open campaign with public key n, g
+    C->>B: append campaign_opened
+    A->>W: encrypt every measure (and its square)
+    W-->>A: ciphertexts
+    A->>W: decrypt 1 percent as a spot check
+    W-->>A: plaintexts match the source rows
+    loop batches of 250 records
+        A->>C: labels and packed ciphertext
+        C-->>A: leaf hash per record
+        A->>A: compare with own leaf hashes
+    end
+    A->>C: commit
+    C->>B: append batch_committed (Merkle root, count)
+    C-->>A: signed receipt
+    A->>A: own root equals signed root, signature verifies
+    A-->>U: campaign ready

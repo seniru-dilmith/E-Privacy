@@ -1,0 +1,17 @@
+flowchart TB
+    USER(["Browser"]) -->|"port WEB_PORT"| WEB
+    subgraph EDGE["Docker network: edge"]
+        WEB["web<br/>nginx serving the Vue build<br/>proxies /api/owner and /api/cloud"]
+        OWN["owner<br/>Node 22, port 4000<br/>holds CSV and private keys"]
+    end
+    subgraph CNET["Docker network: cloud_net"]
+        CLD["cloud<br/>Node 22, port 5000<br/>signing key volume"]
+        SQL["mysql<br/>MySQL 8.4<br/>schema.sql on first start"]
+    end
+    WEB --> OWN
+    WEB --> CLD
+    OWN -->|"HTTP API only"| CLD
+    CLD --> SQL
+    OWN --- V1[["volume owner_keys"]]
+    CLD --- V2[["volume cloud_keys"]]
+    SQL --- V3[["volume mysql_data"]]

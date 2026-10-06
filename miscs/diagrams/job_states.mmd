@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> sampling
+    sampling --> keygen
+    keygen --> encrypting: campaign opened on cloud
+    encrypting --> spot_check
+    spot_check --> uploading: sample decrypts correctly
+    uploading --> committing: every leaf hash matches
+    committing --> done: receipt root and signature verify
+    spot_check --> failed: mismatch
+    uploading --> failed: leaf differs
+    committing --> failed: receipt rejected
+    done --> [*]
+    failed --> [*]

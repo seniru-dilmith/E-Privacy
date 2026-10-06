@@ -1,0 +1,10 @@
+flowchart TB
+    S(["Auditor presses Run all four checks"]) --> K["Fetch board signing key<br/>and every board entry"]
+    K --> C1["1. Log integrity<br/>sequence, links, hashes, signatures"]
+    C1 --> R["For each campaign:<br/>fetch all published ciphertext"]
+    R --> C2["2. Input set<br/>rebuilt Merkle root equals receipt<br/>and every query used that root"]
+    C2 --> C3["3. Computation<br/>product of member ciphertexts<br/>equals each published sum C"]
+    C3 --> C4["4. Decryption<br/>g to the m times r to the n<br/>equals C mod n squared"]
+    C4 --> D(["Report: holds or list of failures"])
+    classDef check fill:#e4e8f3,stroke:#33498f
+    class C1,C2,C3,C4 check

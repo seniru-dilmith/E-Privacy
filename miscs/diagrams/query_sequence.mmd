@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor U as Data owner
+    participant A as Owner agent
+    participant C as Cloud gateway
+    participant E as Compute engine
+    participant B as Bulletin board
+    U->>A: analyse (group by, measures)
+    A->>C: POST /campaigns/:id/query
+    C->>E: group records, multiply ciphertexts mod n squared
+    E-->>C: encrypted sums, input root, groups under k withheld
+    C->>B: append query_result (signed)
+    C-->>A: signed board entry
+    A->>C: fetch the same entry from the board
+    A->>A: check signature, board copy, input root, record count
+    A->>A: decrypt sums and recover r
+    A->>A: recompute sums from local plaintext
+    alt all five checks hold
+        A->>C: publish m and r for every sum
+        C->>B: append decryption_published
+        A-->>U: statistics and charts
+    else any check fails
+        A-->>U: result rejected, nothing shown
+    end

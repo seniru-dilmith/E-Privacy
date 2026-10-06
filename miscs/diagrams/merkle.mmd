@@ -1,0 +1,12 @@
+flowchart BT
+    L0["leaf 0<br/>H(0, labels, ciphertext)"] --> N01["H(1, leaf 0, leaf 1)"]
+    L1["leaf 1"] --> N01
+    L2["leaf 2"] --> N23["H(1, leaf 2, leaf 3)"]
+    L3["leaf 3"] --> N23
+    L4["leaf 4"] --> N4["leaf 4 carried up unchanged"]
+    N01 --> N03["H(1, left, right)"]
+    N23 --> N03
+    N03 --> ROOT["Merkle root<br/>signed in the receipt"]
+    N4 --> ROOT
+    classDef root fill:#e3efe9,stroke:#0f6b5c,stroke-width:2px
+    class ROOT root

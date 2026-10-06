@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph OWNER["Data owner domain (trusted)"]
+        direction LR
+        CSV["Source dataset<br/>CSV file"]
+        UI1["Web UI<br/>owner pages"]
+        AG["Owner agent<br/>Express"]
+        WP["Worker thread pool<br/>Paillier encrypt and decrypt"]
+        KS["Key store<br/>one keypair per campaign"]
+        UI1 --> AG
+        CSV --> AG
+        AG <--> WP
+        AG <--> KS
+    end
+    subgraph CLOUD["Cloud domain (untrusted)"]
+        direction LR
+        GW["Gateway<br/>roles, policy, query log"]
+        CE["Compute engine<br/>product of ciphertexts mod n squared"]
+        BB["Bulletin board<br/>hash chain, P256 signatures"]
+        DB["MySQL<br/>ciphertext, labels, board"]
+        GW --> CE
+        GW --> BB
+        CE --> DB
+        BB --> DB
+        GW --> DB
+    end
+    subgraph PUB["Public"]
+        AU["Auditor browser<br/>Web Worker replays every check"]
+    end
+    AG -- "public key, ciphertext, coarse labels" --> GW
+    GW -- "signed receipts and signed results" --> AG
+    AU -- "reads board and ciphertext" --> GW
+    classDef trusted fill:#e3efe9,stroke:#0f6b5c
+    classDef untrusted fill:#e4e8f3,stroke:#33498f
+    class OWNER trusted
+    class CLOUD untrusted

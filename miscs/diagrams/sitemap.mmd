@@ -1,0 +1,26 @@
+flowchart LR
+    LG["Sign in<br/>/login<br/>split by trust boundary"]
+    subgraph OWN["Owner session"]
+        CA["Campaigns<br/>/campaigns"]
+        SD["Source data<br/>/data/:id"]
+        AN["Analysis<br/>/analysis/:id"]
+        RC["Receipts<br/>/receipts/:id"]
+    end
+    subgraph AUD["Auditor or admin session"]
+        BD["Bulletin board<br/>/board"]
+    end
+    subgraph ADM["Admin session only"]
+        MO["Monitor<br/>/monitor"]
+        DBV["Database<br/>/database/:table"]
+    end
+    LG --> CA
+    LG --> BD
+    LG --> MO
+    CA --> AN
+    CA --> RC
+    CA --> SD
+    MO --> DBV
+    classDef trusted fill:#e3efe9,stroke:#0f6b5c
+    classDef untrusted fill:#e4e8f3,stroke:#33498f
+    class OWN trusted
+    class AUD,ADM untrusted
