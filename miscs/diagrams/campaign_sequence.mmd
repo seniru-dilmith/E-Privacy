@@ -6,7 +6,7 @@ sequenceDiagram
     participant C as Cloud gateway
     participant B as Bulletin board
     U->>A: POST /campaigns (rows, key length, measures)
-    A->>A: sample rows, drop identifiers
+    A->>A: drop identifiers
     A->>A: generate Paillier keypair
     A->>C: open campaign with public key n, g
     C->>B: append campaign_opened

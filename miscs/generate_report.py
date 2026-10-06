@@ -19,6 +19,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.platypus import (
     CondPageBreak, Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate,
     Spacer, Table, TableStyle, XPreformatted,
@@ -32,7 +33,7 @@ SCREENS = OUT / "screens"
 PDF = OUT / "E-Privacy_Implementation_Report.pdf"
 
 TEAM_NAME = ""  # fill in to print it on the title page
-MEMBERS = ["Dilmith D. L. S.", "Hansana O. G. V.", "Vidyananda H. K. H."]
+MEMBERS = [("Dilmith D. L. S.", "220123C"), ("Hansana O. G. V.", "220211U"), ("Vidyananda H. K. H.", "220666R")]
 
 # ---------------------------------------------------------------------------
 # fonts and styles
@@ -238,7 +239,7 @@ sequenceDiagram
     participant C as Cloud gateway
     participant B as Bulletin board
     U->>A: POST /campaigns (rows, key length, measures)
-    A->>A: sample rows, drop identifiers
+    A->>A: drop identifiers
     A->>A: generate Paillier keypair
     A->>C: open campaign with public key n, g
     C->>B: append campaign_opened
@@ -405,11 +406,10 @@ flowchart LR
 
 "job_states": """
 stateDiagram-v2
-    [*] --> sampling
-    sampling --> keygen
+    [*] --> keygen
     keygen --> encrypting: campaign opened on cloud
     encrypting --> spot_check
-    spot_check --> uploading: sample decrypts correctly
+    spot_check --> uploading: decryptions match the source
     uploading --> committing: every leaf hash matches
     committing --> done: receipt root and signature verify
     spot_check --> failed: mismatch
@@ -444,7 +444,6 @@ SHOTS = {  # name: (source file, top, bottom) in source pixels; None keeps the f
     "receipts": ("04-receipts.png", 0, None),
     "board": ("05-board-audit.png", 0, 1480),
     "monitor": ("06-monitor.png", 0, 1960),
-    "mobile": ("07-mobile-campaigns.png", 0, None),
     "rejected": ("09-analysis-rejected.png", 0, 1560),
     "audit_failed": ("10-board-audit-failed.png", 0, 1120),
 }
@@ -478,20 +477,28 @@ def title_page():
             Spacer(1, 30 * mm)]
     if TEAM_NAME:
         flow += [Paragraph(f"<b>{TEAM_NAME}</b>", c), Spacer(1, 3 * mm)]
-    flow += [Paragraph("<br/>".join(MEMBERS), c), Spacer(1, 10 * mm),
-             Paragraph("October 2026", m), PageBreak()]
+    left = ParagraphStyle("left", parent=c, alignment=0)
+    members = Table([[Paragraph(n, left), Paragraph(i, left)] for n, i in MEMBERS], colWidths=[55 * mm, 30 * mm])
+    members.setStyle(TableStyle([("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    flow += [members, Spacer(1, 10 * mm), Paragraph("09/10/2026", m), PageBreak()]
     return flow
 
 
 def contents():
-    rows = [
-        ("1", "Overview"), ("2", "System architecture"), ("3", "Technology stack"),
-        ("4", "Core protocol and data flow"), ("5", "Database schema"), ("6", "Code listings"),
-        ("7", "User interface design"), ("8", "Runtime screen captures"),
-        ("9", "Testing and measured results"), ("10", "Limitations and future work"),
-    ]
-    toc = ParagraphStyle("toc", fontName="Serif", fontSize=11, leading=19, textColor=INK)
-    return [Paragraph("Contents", h1)] + [Paragraph(f"{n}&nbsp;&nbsp;&nbsp;{t}", toc) for n, t in rows] + [PageBreak()]
+    toc = TableOfContents(dotsMinLevel=0)
+    toc.levelStyles = [ParagraphStyle("toc", fontName="Serif", fontSize=11, leading=19, textColor=INK)]
+    return [Paragraph("Contents", h1), toc, PageBreak()]
+
+
+class Report(SimpleDocTemplate):
+    """Records every section heading for the contents page, with a link target."""
+
+    def afterFlowable(self, flowable):
+        if isinstance(flowable, Paragraph) and flowable.style is h1 and flowable.getPlainText() != "Contents":
+            text = flowable.getPlainText()
+            key = "sec-" + text.split()[0]
+            self.canv.bookmarkPage(key)
+            self.notify("TOCEntry", (0, text, self.page, key))
 
 
 def build(d, s):
@@ -513,15 +520,15 @@ def build(d, s):
             "with a root it computed itself.",
             "<b>A public bulletin board.</b> Every campaign, receipt, encrypted result and decryption proof is "
             "appended to a signed hash chain that anyone with read access can replay.",
-            "<b>Result verification.</b> The owner accepts a result only after five independent checks pass, and "
-            "then publishes a proof that lets any auditor confirm the decryption without the private key.",
+            "<b>Result verification.</b> The owner accepts a result only after five independent checks pass: the "
+            "result carries the cloud's signature, it matches the copy on the public board, it was computed over "
+            "exactly the records in the upload receipt, the record count is unchanged, and every decrypted sum "
+            "equals the owner's own recomputation. The owner then publishes a proof that lets any auditor confirm "
+            "the decryption without the private key.",
             "<b>Small group suppression.</b> Groups with fewer than k records (10 by default) are never released.",
         ]),
         P("The system is exercised with a synthetic test dataset of 540,000 rows and 26 columns, produced by a "
-          "seeded generator. The columns fall into three kinds: direct identifiers, which never leave the owner; "
-          "seven coarse labels that the cloud may group by; and fourteen numeric measures, which travel only as "
-          "ciphertext. The source tree has 34 commits and about 5,400 lines across the services, the shared "
-          "protocol module and the user interface."),
+          "seeded generator."),
     ]
 
     # 2 -------------------------------------------------------------------
@@ -534,7 +541,7 @@ def build(d, s):
         Paragraph("2.1  Components", h2),
         table([
             ["Component", "Domain", "Responsibility"],
-            ["Owner agent (owner/)", "Trusted", "Samples the dataset, generates one Paillier keypair per campaign, "
+            ["Owner agent (owner/)", "Trusted", "Generates one Paillier keypair per campaign, "
              "encrypts on a worker pool, uploads, checks receipts, verifies and decrypts results."],
             ["Cloud gateway (cloud/)", "Untrusted", "Authenticates sessions, enforces role policy, stores ciphertext, "
              "issues signed receipts, runs homomorphic queries, serves monitoring data."],
@@ -585,7 +592,7 @@ def build(d, s):
         P("A campaign is one encrypted upload with its own keypair. A fresh key per campaign limits what a leaked "
           "key could expose. The owner agent runs the steps below as a background job and reports its progress "
           "to the UI. Encryption is the slow step; it is spread across every core except one."),
-        figure(d["campaign_sequence"], "Campaign creation, from sampling to a verified receipt.", max_h=165 * mm),
+        figure(d["campaign_sequence"], "Campaign creation, from key generation to a verified receipt.", max_h=165 * mm),
         figure(d["job_states"], "Phases of the campaign job. Any failed check stops the job before the next step.",
                max_h=105 * mm, width=0.75),
         Paragraph("4.2  Record layout and receipts", h2),
@@ -688,36 +695,18 @@ def build(d, s):
         figure(d["sitemap"], "Pages and the session each one requires. The router sends a user without the right "
                "role back to the sign in page, and the navigation rail lists only the cloud pages the signed in role "
                "may open.", max_h=80 * mm),
-        Paragraph("7.1  Layout and visual language", h2),
-        *bullets([
-            "<b>Ledger rather than dashboard.</b> A narrow margin column carries a section number, a short title "
-            "and one sentence of explanation. Content sits to the right without boxes, and sections are separated "
-            "by a single hairline.",
-            "<b>Tables</b> have a heavy rule under the header and hairlines between rows, with no striping or cell "
-            "borders.",
-            "<b>Hashes</b> are shown as short hex with a six bar colour fingerprint, which lets two roots be "
-            "compared at a glance. The full value appears on hover.",
-            "<b>Status</b> always pairs a glyph with a word (a tick and \"holds\", a cross and \"2 failures\"), "
-            "never colour alone.",
-            "<b>The board</b> is drawn as a vertical timeline with one node per entry, expandable in place to show "
-            "the hash, the previous hash, the signature and the exact payload.",
-            "<b>Typeface.</b> Atkinson Hyperlegible Next for text and Atkinson Hyperlegible Mono for hashes and "
-            "ciphertext. Its slashed zero and distinct 1, l and I help when comparing hex strings.",
-        ]),
-        Paragraph("7.2  Charts and accessibility", h2),
-        P("Charts use one validated categorical palette, one colour for single series charts and a single blue "
-          "ramp for the heatmap. There are no dual axes; the monthly view is two stacked charts sharing the month "
-          "axis. Spread is shown wherever it is available, as whiskers or bands. Every chart container has "
-          "role=\"img\" and an aria label, and the numbers behind it also appear in a table. Text contrast is well "
-          "above 4.5:1 on both background tones, focus rings are visible, and the progress rule is an ARIA "
-          "progressbar."),
-        Paragraph("7.3  Pages", h2),
+        Paragraph("7.1  Charts", h2),
+        P("Charts are drawn with Apache ECharts 5, imported module by module, which keeps only the bar, line, "
+          "scatter, heatmap and custom chart types in the build. One small Vue component wraps ECharts, renders "
+          "to SVG and redraws on resize. Every chart is built in the browser from the decrypted sums the owner "
+          "agent returns; the cloud never produces a chart or sees the numbers behind one."),
+        Paragraph("7.2  Pages", h2),
         table([
             ["Page", "Role", "Purpose"],
             ["Sign in", "anyone", "Two forms side by side, one per domain."],
-            ["Campaigns", "owner", "Choose sample size, key length and measures; see an estimate of ciphertext "
+            ["Campaigns", "owner", "Choose the records, key length and measures; see an estimate of ciphertext "
              "count, upload size and time; follow the job phase by phase."],
-            ["Source data", "owner", "The sampled rows in plaintext, with each column marked encrypted, sent in "
+            ["Source data", "owner", "The campaign's rows in plaintext, with each column marked encrypted, sent in "
              "clear or kept by the owner. Exists only on the owner side."],
             ["Analysis", "owner", "Five grouped queries, each with its five checks, followed by charts and an "
              "accuracy ledger comparing every decrypted sum with the plaintext sum."],
@@ -748,8 +737,6 @@ def build(d, s):
                "show its hash, link, signature and payload.", max_h=200 * mm),
         figure(s["monitor"], "Monitor. Requests per minute, mean latency per endpoint and ciphertext storage per "
                "campaign. No key material or plaintext reaches this page.", max_h=225 * mm),
-        figure(s["mobile"], "Campaigns page at phone width. The rail collapses into a top bar that keeps the "
-               "boundary colours.", max_h=150 * mm, width=0.4),
     ]
 
     # 9 -------------------------------------------------------------------
@@ -757,8 +744,6 @@ def build(d, s):
         Paragraph("9.1  Protocol unit tests", h2),
         P("The shared protocol has four tests that use a real 1024 bit key. They run with <i>npm test</i> and all "
           "four pass."),
-        *listing("shared/protocol.test.js (first two tests)",
-                 snippet("shared/protocol.test.js", "test('aggregate over", "assert.notEqual(P.merkleRoot(leaves.slice(0, -1)), root);") + "\n});"),
         table([
             ["Test", "Result", "Time"],
             ["Aggregate over ciphertext decrypts to the plaintext sum, and the decryption proof holds", "pass", "985 ms"],
@@ -841,12 +826,12 @@ def main():
     OUT.mkdir(exist_ok=True)
     d = render_diagrams()
     s = crop_screens()
-    doc = SimpleDocTemplate(str(PDF), pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
+    doc = Report(str(PDF), pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
                             topMargin=20 * mm, bottomMargin=20 * mm,
-                            title="E-Privacy Implementation Report", author=", ".join(MEMBERS))
+                            title="E-Privacy Implementation Report", author=", ".join(n for n, _ in MEMBERS))
     story = build(d, s)
     check_prose()
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    doc.multiBuild(story, onFirstPage=footer, onLaterPages=footer)
     print(f"report   {PDF.relative_to(ROOT)}")
 
 
